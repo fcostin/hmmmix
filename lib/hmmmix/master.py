@@ -43,6 +43,7 @@ def bootstrap_initial_basis(problem: base.MasterProblem):
             aux_soln = aux_solver.solve(aux_problem)
             assert aux_soln is not None
             assert base.is_auxiliary_solution_sane(aux_problem, aux_soln)
+            assert aux_soln.logprob < 0.0
             soln_id = make_soln_id('once-off', aux_soln.id)
             z_by_i[soln_id] = aux_soln
             ub_by_i[soln_id] = ub
@@ -88,6 +89,9 @@ class RelaxedMasterSolver(base.MasterSolver):
             # m.emphasis = mip.SearchEmphasis.OPTIMALITY # please solve the dual problem!
             # m.lp_method = mip.LP_Method.DUAL # please solve the dual problem!!
 
+            # TODO what if we directly model and solve the dual?
+            # C.f. https://users.wpi.edu/~msarkis/MA2210/EqualityDual.pdf etc.
+
             x_by_i = {i: m.add_var(name=i, var_type=mip.CONTINUOUS, lb=0.0, ub=ub_by_i.get(i, 1.0)) for i in z_by_i}
 
             # maximise log P(H|D)
@@ -96,38 +100,13 @@ class RelaxedMasterSolver(base.MasterSolver):
             # Constraints -- forall t forall u balance supply and demand:
 
 
-            con_balance_ub_by_t_u = {}
+            con_balance_by_t_u = {}
             for t in T:
                 for u in U:
                     rhs = int(problem.e_hat[(t, u)]) # WTF, this seems necessary
-                    """
-                    assert rhs >= 0
-                    if rhs > 0:
-                        assert i_with_support_t_u[(t, u)]
-                    for i in i_with_support_t_u[(t, u)]:
-                        assert z_by_i[i].e[(t, u)] == 1
-
-                    assert sum(z_by_i[i].e[(t, u)] * x_by_i[i] for i in i_with_support_t_u[(t, u)]) >= rhs
-                    
-                    print('t=%r\tu=%r' % (t, u))
-                    print('\trhs=%r' % (rhs, ))
-                    print('\tlhs indices=%r' % (i_with_support_t_u[(t, u)], ))
-                    print('\te coeffs:')
-                    for i in i_with_support_t_u[(t, u)]:
-                        e_i_t_u = z_by_i[i].e[(t, u)]
-                        print('\t\te[i=%r; t=%r; u=%r]=%r' % (i, t, u, e_i_t_u))
-                    """
-                    linexpr = mip.xsum(z_by_i[i].e[(t, u)] * x_by_i[i] for i in i_with_support_t_u[(t, u)]) <= rhs
+                    linexpr = mip.xsum(z_by_i[i].e[(t, u)] * x_by_i[i] for i in i_with_support_t_u[(t, u)]) == rhs
                     con = m.add_constr(linexpr)
-                    con_balance_ub_by_t_u[(t, u)] = con
-
-            con_balance_lb_by_t_u = {}
-            for t in T:
-                for u in U:
-                    rhs = int(problem.e_hat[(t, u)])  # WTF, this seems necessary
-                    linexpr = mip.xsum(z_by_i[i].e[(t, u)] * x_by_i[i] for i in i_with_support_t_u[(t, u)]) >= rhs
-                    con = m.add_constr(linexpr)
-                    con_balance_lb_by_t_u[(t, u)] = con
+                    con_balance_by_t_u[(t, u)] = con
 
             status = m.optimize(relax=True)
             assert status == mip.OptimizationStatus.OPTIMAL
@@ -145,12 +124,9 @@ class RelaxedMasterSolver(base.MasterSolver):
             prizes = numpy.zeros(shape=(len(T), len(U)), dtype=numpy.float64)
             for t in T:
                 for u in U:
-                    pi_ub = con_balance_ub_by_t_u[(t, u)].pi
-                    pi_lb = con_balance_lb_by_t_u[(t, u)].pi
-                    assert not numpy.isnan(pi_ub) # What the.
-                    assert not numpy.isnan(pi_lb) # What the.
-                    # print('t=%r\tu=%r\tpi_ub=%r\tpi_lb=%r' % (t, u, pi_ub, pi_lb))
-                    prizes[(t, u)] = - pi_ub + pi_lb # TODO is this antiparallel or parallel? D:
+                    pi = con_balance_by_t_u[(t, u)].pi
+                    assert not numpy.isnan(pi) # What the.
+                    prizes[(t, u)] = - pi # TODO is this antiparallel or parallel
 
 
             aux_solvers_by_id: typing.Dict[str, base.AuxiliarySolver] = { # TODO dep inject
