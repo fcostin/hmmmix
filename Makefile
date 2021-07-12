@@ -1,6 +1,10 @@
 
-all:	data/transactions.npy
+all:	demo
 .PHONY:	all
+
+demo:	lib/hmmmix/master.py data/transactions.npy
+	python -m lib.hmmmix.master $(word 2,$^)
+.PHONY:	demo
 
 clean:
 	rm -f data/transactions.npy

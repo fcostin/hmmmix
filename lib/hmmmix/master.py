@@ -103,7 +103,7 @@ class RelaxedMasterSolver(base.MasterSolver):
             con_balance_by_t_u = {}
             for t in T:
                 for u in U:
-                    rhs = int(problem.e_hat[(t, u)]) # WTF, this seems necessary
+                    rhs = problem.e_hat[(t, u)]
                     linexpr = mip.xsum(z_by_i[i].e[(t, u)] * x_by_i[i] for i in i_with_support_t_u[(t, u)]) == rhs
                     con = m.add_constr(linexpr)
                     con_balance_by_t_u[(t, u)] = con

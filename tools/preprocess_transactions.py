@@ -55,7 +55,7 @@ def parse_bucketized_amount(x):
     
 
 def load(fn):
-    dtype=[('date', 'datetime64[D]'), ('bucket', 'uint8')]
+    dtype=[('date', 'datetime64[D]'), ('bucket', 'int64')]
 
     converters = {
         0: parse_date,
@@ -95,7 +95,7 @@ def main():
         day = numpy.timedelta64(1, 'D')
         n_days = int(numpy.round(((t_1 - t_0) + day) / day))
 
-        data_out = numpy.zeros(shape=(n_days, n_buckets), dtype='uint')
+        data_out = numpy.zeros(shape=(n_days, n_buckets), dtype='int64')
 
         for record in data:
             t = int(numpy.round((record['date'] - t_0) / day))
