@@ -21,6 +21,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('input_fns', metavar='F', type=str, nargs=1,
         help='filename of input CSV data')
+    p.add_argument('-c', '--counts', action='store_true',
+        help='output event counts grouped by (date, bucket)')
     p.add_argument('-o', '--out', type=str,
         required=True,
         help='filename of output binary npy data file')
@@ -85,8 +87,28 @@ def main():
     for hi, bi in zip(h, _BUCKETS):
         print('bucket "%s"\tlower=%.2f\tupper=%.2f\tsamples=%r' % (bi.label, bi.lower_bound, bi.upper_bound, hi))
 
+    if args.counts:
+        print('counting events per (date, bucket) group')
+        t_0 = numpy.min(data['date'])
+        t_1 = numpy.max(data['date'])
+
+        day = numpy.timedelta64(1, 'D')
+        n_days = int(numpy.round(((t_1 - t_0) + day) / day))
+
+        data_out = numpy.zeros(shape=(n_days, n_buckets), dtype='uint')
+
+        for record in data:
+            t = int(numpy.round((record['date'] - t_0) / day))
+            assert 0 <= t and t < n_days
+            u = record['bucket']
+            assert 0 <= u and u < n_buckets
+            data_out[t, u] += 1
+    else:
+        print('not counting events')
+        data_out = data
+
     with open(args.out, 'wb') as f_out:
-        numpy.save(f_out, data, allow_pickle=False)
+        numpy.save(f_out, data_out, allow_pickle=False)
 
     print('wrote npy array to "%s"' % (args.out, ))
 
