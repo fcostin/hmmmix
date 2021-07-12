@@ -55,6 +55,7 @@ class AuxiliarySolution(typing.NamedTuple):
 
 class AuxiliarySolver(metaclass=abc.ABCMeta):
 
+    @abc.abstractmethod
     def solve(self, problem: AuxiliaryProblem) -> typing.Optional[AuxiliarySolution]:
         pass
 
@@ -65,10 +66,7 @@ def is_auxiliary_solution_sane(problem: AuxiliaryProblem, soln: AuxiliarySolutio
 
     total_prize = soln.objective - soln.logprob
 
-    acc = 0.0
-    for t in problem.times:
-        for u in problem.event_types:
-            acc += soln.e[t, u] * problem.prizes[t, u]
+    acc = numpy.sum(problem.prizes * soln.e)
 
     return numpy.isclose(total_prize, acc)
 
@@ -245,5 +243,6 @@ class MasterSolution(typing.NamedTuple):
 
 class MasterSolver(metaclass=abc.ABCMeta):
 
+    @abc.abstractmethod
     def solve(self, problem: MasterProblem) -> typing.Optional[MasterSolution]:
         pass
