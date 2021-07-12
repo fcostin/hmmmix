@@ -1,9 +1,20 @@
 import argparse
+import collections
 import numpy
 import os.path
 import re
 
+Bucket = collections.namedtuple('Bucket', ['label', 'lower_bound', 'upper_bound'])
+
 _DATESTAMP_DD_MM_YYYY_RE = re.compile("^(\d{2})/(\d{2})/(\d{4})$")
+
+_BUCKETS = [
+    Bucket(label='T', lower_bound=0.01, upper_bound=10.00),
+    Bucket(label='S', lower_bound=10.0, upper_bound=20.00),
+    Bucket(label='M', lower_bound=20.0, upper_bound=75.00),
+    Bucket(label='L', lower_bound=75.0, upper_bound=200.00),
+    Bucket(label='X', lower_bound=200.0, upper_bound=numpy.inf),
+]
 
 
 def parse_args():
@@ -26,13 +37,27 @@ def parse_date(s):
     yyyy = m.group(3)
     isodate = '%s-%s-%s' % (yyyy, mm, dd)
     return numpy.datetime64(isodate, 'D')
+
+
+def bucketize_transaction_amount(x):
+    assert x < 0.0
+    y = -x
+    for i, b in enumerate(_BUCKETS):
+        if b.lower_bound <= y and y < b.upper_bound:
+            return i
+    raise ValueError(x)
+
+
+def parse_bucketized_amount(x):
+    return bucketize_transaction_amount(float(x))
     
 
 def load(fn):
-    dtype=[('date', 'datetime64[D]'), ('amount', 'f4')]
+    dtype=[('date', 'datetime64[D]'), ('bucket', 'uint8')]
 
     converters = {
         0: parse_date,
+        1: parse_bucketized_amount,
     }
 
     return numpy.loadtxt(
@@ -52,6 +77,13 @@ def main():
         data = load(f)
 
     print('parsed %d record(s) from file "%s"' % (len(data), args.input_fns[0]))
+
+    # briefly summarise to let user sanity-check
+    n_buckets = len(_BUCKETS)
+    h = numpy.bincount(data['bucket'], minlength=n_buckets)
+    assert len(h) == len(_BUCKETS), len(h)
+    for hi, bi in zip(h, _BUCKETS):
+        print('bucket "%s"\tlower=%.2f\tupper=%.2f\tsamples=%r' % (bi.label, bi.lower_bound, bi.upper_bound, hi))
 
     with open(args.out, 'wb') as f_out:
         numpy.save(f_out, data, allow_pickle=False)
