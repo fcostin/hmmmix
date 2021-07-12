@@ -1,3 +1,5 @@
 /venv
 *.npy
 .~lock*
+/.idea
+__pycache__
