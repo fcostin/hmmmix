@@ -172,7 +172,7 @@ def main():
 
     # mip library goes completely bananas if given unsigned integers
     e_hat = numpy.asarray(e_hat, dtype=numpy.int64)
-    e_hat = e_hat[:, :]
+    e_hat = e_hat[-365:, :]
     n_time, n_type = e_hat.shape
 
 
