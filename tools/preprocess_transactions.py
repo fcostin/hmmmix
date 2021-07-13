@@ -23,6 +23,8 @@ def parse_args():
         help='filename of input CSV data')
     p.add_argument('-c', '--counts', action='store_true',
         help='output event counts grouped by (date, bucket)')
+    p.add_argument('-d', '--descr', type=str,
+                   help='filter events by description')
     p.add_argument('-o', '--out', type=str,
         required=True,
         help='filename of output binary npy data file')
@@ -55,7 +57,7 @@ def parse_bucketized_amount(x):
     
 
 def load(fn):
-    dtype=[('date', 'datetime64[D]'), ('bucket', 'int64')]
+    dtype=[('date', 'datetime64[D]'), ('bucket', 'int64'), ('descr', 'U4')]
 
     converters = {
         0: parse_date,
@@ -67,7 +69,7 @@ def load(fn):
         dtype=dtype,
         delimiter=',',
         converters=converters,
-        usecols=(0, 1),
+        usecols=(0, 1, 2),
         skiprows=1,
         encoding=None,
     )
@@ -79,6 +81,11 @@ def main():
         data = load(f)
 
     print('parsed %d record(s) from file "%s"' % (len(data), args.input_fns[0]))
+
+    if args.descr:
+        mask = data['descr'] == args.descr
+        data = data[mask]
+        print('after filtering on descr=%r, got %d record(s)' % (args.descr, len(data)))
 
     # briefly summarise to let user sanity-check
     n_buckets = len(_BUCKETS)
