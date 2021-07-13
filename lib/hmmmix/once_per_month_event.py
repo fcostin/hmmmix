@@ -91,10 +91,9 @@ class OncePerMonthEventAuxiliarySolver(base.AuxiliarySolver):
         self.banned_ids.add(solution.id)
 
     def solve(self, problem: base.AuxiliaryProblem) -> typing.Optional[base.AuxiliarySolution]:
-        month_duration = 30
+        month_duration = 30 # TODO MUST FIX THIS!
         T = len(problem.times)
         U = len(problem.event_types)
-        n_phases = 1.0 * month_duration
 
         max_objective = -numpy.inf
         max_logprob = None
