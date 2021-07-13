@@ -77,6 +77,7 @@ def _further_delay(current_delay):
         d += 1
     return more / (enough + more)
 
+# TODO fix divide by zero in log due to computing impossible event
 LOGPROB_FURTHER_DELAY_GIVEN_CURRENT_DELAY = {d:numpy.log(_further_delay(d)) for d in PROB_DAYS_DELAYED}
 LOGPROB_EMIT_GIVEN_CURRENT_DELAY = {d:numpy.log(1.0 - _further_delay(d)) for d in PROB_DAYS_DELAYED}
 
@@ -194,18 +195,52 @@ STATES = list(gen_states())
 
 OUTGOING_EDGES_BY_STATE = {s:list(gen_edges(s)) for s in STATES}
 
-# sanity check
-# fix a state s. the outgoing edges from s should have probability that sums to unity.
 
-def edges_conserve_probability(edges):
-    acc = 0.0
-    for edge in edges:
-        prob = numpy.exp(edge.weight)
-        acc += prob
+
+
+# this prior is low information guesswork
+
+def logprob_prior(state):
+    w = 0.0
+    if active(state):
+        w = numpy.log(1.0 / 2.0)
+        if overdue(state):
+            w += numpy.log(1.0 / 2.0)
+            # assume spread nonuniformly according to delay distribution
+            dd = delay(state)
+            w += numpy.log(PROB_DAYS_DELAYED[dd])
+            return w
+        else:
+            assert scheduled(state)
+            w += numpy.log(1.0 / 2.0)
+            # assume spread uniformly over possible values of d
+            w += numpy.log(1.0 / 31.0)
+            return w
+    else:
+        w += numpy.log(1.0 / 2.0)
+        return w
+
+
+LOGPROB_PRIOR_BY_STATE = {s:logprob_prior(s) for s in STATES}
+
+
+def probability_conserved(logprobs):
+    acc = numpy.sum(numpy.exp(logprobs))
     return numpy.isclose(acc, 1.0)
 
+# sanity check
+# prior should be a valid probability distribution
+assert probability_conserved(list(LOGPROB_PRIOR_BY_STATE.values())), "prior fails to conserve probability"
+
+
+def edges_conserve_probability(edges):
+    return probability_conserved([e.weight for e in edges])
+
+# sanity check
+# fix a state s. the outgoing edges from s should have probability that sums to unity.
 for s in STATES:
     assert edges_conserve_probability(OUTGOING_EDGES_BY_STATE[s]), "edges fail to conserve probability; state: " + repr(s)
+
 
 def prettystate(state):
     if not active(state):
@@ -217,11 +252,17 @@ def prettystate(state):
     return 'D%02d' % (dd,)
 
 
-for s in STATES:
-    print(repr(prettystate(s)))
+if __name__ == '__main__':
+    # Display states and transitions if run as a script for some reason.
 
-print()
+    for s in STATES:
+        print(repr(prettystate(s)))
 
-for s in STATES:
-    for edge in OUTGOING_EDGES_BY_STATE[s]:
-        print('%r\t->\t%r\t%r\t%r' % (prettystate(s), prettystate(edge.succ), edge.weight, edge.delta_e))
+    print()
+
+    for s in STATES:
+        for edge in OUTGOING_EDGES_BY_STATE[s]:
+            print('%r\t->\t%r\t%r\t%r' % (prettystate(s), prettystate(edge.succ), edge.weight, edge.delta_e))
+
+    print()
+    print(len(STATES))
