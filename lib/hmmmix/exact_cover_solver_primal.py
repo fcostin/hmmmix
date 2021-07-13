@@ -96,7 +96,7 @@ class PrimalExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver
                     print('warning: pi_ub t=%r u=%r is nan' % (t, u))
                 if numpy.isnan(pi_lb):
                     print('warning: pi_lb t=%r u=%r is nan' % (t, u))
-                prizes[(t, u)] = -pi_ub + pi_lb  # TODO is this antiparallel or parallel
+                prizes[(t, u)] = pi_ub - pi_lb
 
         return base.ExactCoverResourcePricingSolution(
             objective=m.objective_value,

@@ -17,11 +17,26 @@ class OnceOffEventAuxiliarySolver(base.AuxiliarySolver):
     1 / (|T| * |U|)
     """
 
+    def __init__(self):
+        self.banned_ids = set()
+
+    def exclude(self, solution: base.AuxiliarySolution):
+        self.banned_ids.add(solution.id)
+
     def solve(self, problem: base.AuxiliaryProblem) -> typing.Optional[base.AuxiliarySolution]:
 
         T = len(problem.times)
         U = len(problem.event_types)
         log_prior_prob = -numpy.log(T) -numpy.log(U)
+
+        prizes = numpy.copy(problem.prizes)
+        # Constrain to prevent picking banned solutions again
+        for soln_id in self.banned_ids:
+            # ugh. fix this awfulness.
+            st, su = soln_id.split(';')
+            t = int(st)
+            u = int(su)
+            prizes[(t, u)] = -numpy.inf
 
         # Find once off event parameters (t, u) that maximise objective function.
         i = numpy.argmax(problem.prizes)
@@ -34,9 +49,12 @@ class OnceOffEventAuxiliarySolver(base.AuxiliarySolver):
         e = numpy.zeros(shape=problem.prizes.shape, dtype=numpy.uint)
         e[(t, u)] = 1
 
-        return base.AuxiliarySolution(
-            id='t=%d;u=%d' % (t, u),
-            objective=objective,
-            logprob=log_prior_prob,
-            e=e,
-        )
+        if numpy.isfinite(objective):
+            return base.AuxiliarySolution(
+                id='%d;%d' % (t, u),
+                objective=objective,
+                logprob=log_prior_prob,
+                e=e,
+            )
+        else:
+            return None

@@ -6,6 +6,7 @@ import sys
 from . import base
 
 from . import once_off_event # TODO master shouldnt depend on concrete aux solvers
+from . import once_per_month_event
 
 from . import exact_cover_base
 from . import exact_cover_solver_primal
@@ -64,6 +65,11 @@ class RelaxedMasterSolver(base.MasterSolver):
         T = problem.times
         U = problem.event_types
 
+        aux_solvers_by_id: typing.Dict[str, base.AuxiliarySolver] = {  # TODO dep inject
+            'once-off': once_off_event.OnceOffEventAuxiliarySolver(),
+            'once-per-month': once_per_month_event.OncePerMonthEventAuxiliarySolver(),
+        }
+
         # Shorthand: let z[i] denote i-th Aux solution
         z_by_i: typing.Dict[str, base.AuxiliarySolution] = {}
 
@@ -73,7 +79,6 @@ class RelaxedMasterSolver(base.MasterSolver):
         print('ok')
 
         # Iteratively solve relaxed restricted master problem
-
 
         # Maintain cache of which i have nonzero e[(t, u)]
         i_with_support_t_u = collections.defaultdict(set)
@@ -117,10 +122,6 @@ class RelaxedMasterSolver(base.MasterSolver):
             print('\tmin prize: %r' % (prizes.min(), ))
             print('\tmax abs prize: %r' % (numpy.abs(prizes).max(), ))
 
-            aux_solvers_by_id: typing.Dict[str, base.AuxiliarySolver] = { # TODO dep inject
-                'once-off': once_off_event.OnceOffEventAuxiliarySolver(),
-            }
-
             aux_problem = base.AuxiliaryProblem(
                 times=T,
                 event_types=U,
@@ -152,6 +153,9 @@ class RelaxedMasterSolver(base.MasterSolver):
             new_i = make_soln_id(best_aux_solver_id, best_aux_soln.id)
 
             print('adding column z[i]: %s' % (new_i, ))
+
+            # Ban solver from generating the same aux solution again.
+            aux_solvers_by_id[best_aux_solver_id].exclude(best_aux_soln)
 
             assert new_i not in z_by_i
             z_by_i[new_i] = best_aux_soln

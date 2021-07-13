@@ -56,6 +56,10 @@ class AuxiliarySolution(typing.NamedTuple):
 class AuxiliarySolver(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
+    def exclude(self, solution: AuxiliarySolution):
+        pass
+
+    @abc.abstractmethod
     def solve(self, problem: AuxiliaryProblem) -> typing.Optional[AuxiliarySolution]:
         pass
 
