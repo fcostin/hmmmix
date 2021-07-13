@@ -12,6 +12,8 @@ from . import exact_cover_base
 from . import exact_cover_solver_primal
 from . import exact_cover_solver_dual
 
+from .lattice import liblattice
+
 
 def make_soln_id(solver_id, soln_id):
     return '%s;%s' % (solver_id, soln_id)
@@ -168,6 +170,8 @@ class RelaxedMasterSolver(base.MasterSolver):
 
 
 def main():
+    liblattice.self_test()
+
     fn = sys.argv[1]
 
     e_hat = numpy.load(fn)

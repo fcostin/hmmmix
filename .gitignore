@@ -1,5 +1,8 @@
 /venv
+/build
 *.npy
+/lib/hmmmix/lattice/liblattice.c
+/lib/hmmmix/lattice/liblattice.*.so
 .~lock*
 /.idea
 __pycache__
