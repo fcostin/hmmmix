@@ -24,7 +24,7 @@ def parse_args():
     p.add_argument('-c', '--counts', action='store_true',
         help='output event counts grouped by (date, bucket)')
     p.add_argument('-d', '--descr', type=str,
-                   help='filter events by description')
+                   help='filter events by description (python regex)')
     p.add_argument('-o', '--out', type=str,
         required=True,
         help='filename of output binary npy data file')
@@ -83,7 +83,8 @@ def main():
     print('parsed %d record(s) from file "%s"' % (len(data), args.input_fns[0]))
 
     if args.descr:
-        mask = data['descr'] == args.descr
+        pattern = re.compile(args.descr)
+        mask = [pattern.match(x) is not None for x in data['descr']]
         data = data[mask]
         print('after filtering on descr=%r, got %d record(s)' % (args.descr, len(data)))
 
