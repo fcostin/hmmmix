@@ -70,7 +70,7 @@ class RelaxedMasterSolver(base.MasterSolver):
 
         aux_solvers_by_id: typing.Dict[str, base.AuxiliarySolver] = {  # TODO dep inject
             'once-off': once_off_event.OnceOffEventAuxiliarySolver(),
-            'once-per-month': once_per_month_event.OncePerMonthEventAuxiliarySolver(),
+        #    'once-per-month': once_per_month_event.OncePerMonthEventAuxiliarySolver(),
             'markov': markov_event.MarkovEventAuxiliarySolver(),
         }
 
@@ -182,7 +182,7 @@ def main():
     e_hat = numpy.asarray(e_hat, dtype=numpy.int64)
 
     # restrict to last year only, and only larger transactions
-    e_hat = e_hat[-365:, -1:]
+    e_hat = e_hat[-365:, -2:]
     n_time, n_type = e_hat.shape
 
     print('note: there are %d total events in e_hat' % (e_hat.sum(), ))
