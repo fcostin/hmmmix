@@ -117,18 +117,15 @@ class RelaxedMasterSolver(base.MasterSolver):
 
             prizes = cover_solution.prizes
 
-            print('note prizes')
-            print('\tmax prize: %r' % (prizes.max(), ))
-            print('\tmin prize: %r' % (prizes.min(), ))
-            print('\tmax abs prize: %r' % (numpy.abs(prizes).max(), ))
-
             aux_problem = base.AuxiliaryProblem(
                 times=T,
                 event_types=U,
                 prizes=prizes,
             )
 
-            best_aux_objective = 0.0 # status quo has reduced cost 0. require strictly positive
+            min_improvement = 10.e-9
+
+            best_aux_objective = min_improvement # status quo has reduced cost 0. require strictly positive
             best_aux_soln = None
             best_aux_solver_id = None
 
@@ -177,9 +174,12 @@ def main():
 
     # mip library goes completely bananas if given unsigned integers
     e_hat = numpy.asarray(e_hat, dtype=numpy.int64)
-    e_hat = e_hat[-365:, :]
+
+    # restrict to last year only, and only larger transactions
+    e_hat = e_hat[-365:, -1:]
     n_time, n_type = e_hat.shape
 
+    print('note: there are %d total events in e_hat' % (e_hat.sum(), ))
 
     T = numpy.arange(n_time)
     U = numpy.arange(n_type)
