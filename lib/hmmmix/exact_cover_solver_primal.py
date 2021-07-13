@@ -87,6 +87,9 @@ class PrimalExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver
         # equivalent to replacing the constraints A x <= b with A x <= b + lambda 1 .
         for t in T:
             for u in U:
+                # FIXME this nan nonsense may be specific to trying to solve a dual
+                # linear program through the layers of python mip & CBC. But we don't
+                # necessarily need python mip or CBC (or a primal problem) to do that.
                 pi_ub = con_balance_ub_by_t_u[(t, u)].pi
                 pi_lb = con_balance_lb_by_t_u[(t, u)].pi
                 if numpy.isnan(pi_ub):
