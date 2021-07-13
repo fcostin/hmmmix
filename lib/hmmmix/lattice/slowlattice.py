@@ -25,7 +25,7 @@ def search_best_path(times, prizes):
         prizes,
     )
     # translate from state indices back into fancy states
-    fancy_state_trajectory = [genlattice.STATES[s] for s in state_trajectory]
+    fancy_state_trajectory = [genlattice.prettystate(genlattice.STATES[s]) for s in state_trajectory]
 
     return (objective_star, logprob_star, fancy_state_trajectory, obs_trajectory)
 
@@ -57,9 +57,10 @@ def _search_best_path(times, states, logprob_prior, outgoing_edges, prizes):
     parent_s = numpy.zeros(shape=(T, S), dtype=int)
     parent_obs = numpy.zeros(shape=(T, S), dtype=int)
 
-    # initialise value at t=0 using prior
+    # initialise value and logprob at t=0 using prior
     for s in states:
         v[0, s] = logprob_prior[s]
+        logprob[0, s] = logprob_prior[s]
 
     # bottom up dynamic programming solve for value maximising paths.
 
@@ -100,5 +101,7 @@ def _search_best_path(times, states, logprob_prior, outgoing_edges, prizes):
 
     state_trajectory = list(reversed(state_trajectory))
     obs_trajectory = list(reversed(obs_trajectory))
+
+    obs_trajectory = obs_trajectory[1:] + [0] # FIXME aiee
 
     return (objective_star, logprob_star, state_trajectory, obs_trajectory)
