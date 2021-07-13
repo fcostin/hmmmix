@@ -59,14 +59,6 @@ class PrimalExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver
             print('failed to find optimal solution: CBC reports status=%r' % (status, ))
             return None
 
-        # Recover primal solution (not yet needed)
-        if False:
-            soln_x = {}
-            for i, x_i in x_by_i.items():
-                weight_i = abs(x_i.x)
-                if weight_i > 1.0e-6:
-                    soln_x[i] = weight_i
-
         # Recover dual variable value for each constraint
         prizes = numpy.zeros(shape=(len(T), len(U)), dtype=numpy.float64)
         # Intuition: I believe when the values of the dual variables are unstable
@@ -105,7 +97,16 @@ class PrimalExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver
                 # TODO FIXME figure out _EXACTLY_ what this should be
                 prizes[(t, u)] = - pi_ub - pi_lb
 
+
+        # Recover primal solution
+        soln_z = {}
+        for i, x_i in x_by_i.items():
+            weight_i = abs(x_i.x)
+            if weight_i > 1.0e-6:
+                soln_z[i] = weight_i
+
         return base.ExactCoverResourcePricingSolution(
             objective=m.objective_value,
             prizes=prizes,
+            z=soln_z,
         )

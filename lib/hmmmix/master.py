@@ -146,6 +146,11 @@ class RelaxedMasterSolver(base.MasterSolver):
 
             if best_aux_soln is None:
                 print('converged')
+                print('')
+                print('solution:')
+                for i in sorted(cover_solution.z):
+                    weight = cover_solution.z[i]
+                    print('%.4f\t%s' % (weight, i))
                 return
 
             print('best aux objective: %r' % (best_aux_objective, ))

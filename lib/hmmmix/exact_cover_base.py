@@ -43,6 +43,9 @@ class ExactCoverResourcePricingSolution(typing.NamedTuple):
     # of the dual to the relaxed exact cover problem.
     prizes: npt.ArrayLike
 
+    # z is sparse vector of weights in cover indexed by i
+    z: typing.Dict[str, float]
+
 
 class ExactCoverResourcePricingSolver(metaclass=abc.ABCMeta):
 
