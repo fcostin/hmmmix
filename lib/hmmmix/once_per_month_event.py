@@ -101,7 +101,7 @@ class OncePerMonthEventAuxiliarySolver(base.AuxiliarySolver):
         max_description = None
         max_e = None
 
-        for u in problem.event_types[-1:]:
+        for u in problem.event_types:
             # case: ongoing process -- no start, no stop
             for pattern_id, log_prior_prob_pattern, months in iter_all_patterns(month_duration, T):
                 acc_objective = -numpy.log(U) + log_prior_prob_pattern
