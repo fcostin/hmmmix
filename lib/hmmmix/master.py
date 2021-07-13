@@ -1,6 +1,5 @@
 import collections
 import numpy
-import mip
 import typing
 import sys
 
@@ -8,6 +7,10 @@ from . import base
 
 from . import once_off_event # TODO master shouldnt depend on concrete aux solvers
 
+from . import exact_cover_base
+from . import exact_cover_solver_primal
+
+REGULARISATION_LAMBDA = 1.0e-6
 
 
 def make_soln_id(solver_id, soln_id):
@@ -82,52 +85,34 @@ class RelaxedMasterSolver(base.MasterSolver):
 
         while True:
             print('iter...')
-            m = mip.Model(sense=mip.MAXIMIZE, solver_name=mip.CBC)
 
-            # These are hacks, was trying to see if i could stop the constraint dual
-            # vars from ending up as nans
-            # m.emphasis = mip.SearchEmphasis.OPTIMALITY # please solve the dual problem!
-            # m.lp_method = mip.LP_Method.DUAL # please solve the dual problem!!
+            solver = exact_cover_solver_primal.PrimalExactCoverResourcePricingSolver(
+                regularisation_lambda=0.0,
+            )
 
-            # TODO what if we directly model and solve the dual?
-            # C.f. https://users.wpi.edu/~msarkis/MA2210/EqualityDual.pdf etc.
+            cover_problem = exact_cover_base.ExactCoverResourcePricingProblem(
+                times=problem.times,
+                event_types=problem.event_types,
+                e_hat=problem.e_hat,
+                z_by_i={i:exact_cover_base.CandidateSet(cost=-z.logprob, e=z.e) for i, z in z_by_i.items()},
+                ub_by_i=ub_by_i,
+                i_with_support_t_u=i_with_support_t_u,
+            )
 
-            x_by_i = {i: m.add_var(name=i, var_type=mip.CONTINUOUS, lb=0.0, ub=ub_by_i.get(i, 1.0)) for i in z_by_i}
+            cover_solution = solver.solve(cover_problem)
+            if cover_solution is None:
+                print('error - restricted relaxed exact cover problem infeasible. add more candidate sets!')
+                return None
 
-            # maximise log P(H|D)
-            m.objective = mip.xsum(z.logprob * x_by_i[i] for (i, z) in z_by_i.items())
+            obj = cover_solution.objective
+            print("restricted relaxed exact cover problem solved, objective=%r" % (obj, ))
 
-            # Constraints -- forall t forall u balance supply and demand:
+            prizes = cover_solution.prizes
 
-
-            con_balance_by_t_u = {}
-            for t in T:
-                for u in U:
-                    rhs = problem.e_hat[(t, u)]
-                    linexpr = mip.xsum(z_by_i[i].e[(t, u)] * x_by_i[i] for i in i_with_support_t_u[(t, u)]) == rhs
-                    con = m.add_constr(linexpr)
-                    con_balance_by_t_u[(t, u)] = con
-
-            status = m.optimize(relax=True)
-            assert status == mip.OptimizationStatus.OPTIMAL
-
-            print('objective: %g' % (m.objective_value, ))
-
-            # Recover solution
-            soln_x = {}
-            for i, x_i in x_by_i.items():
-                weight_i = abs(x_i.x)
-                if weight_i > 1.0e-6:
-                    soln_x[i] = weight_i
-
-            # Recover dual variable value for each constraint
-            prizes = numpy.zeros(shape=(len(T), len(U)), dtype=numpy.float64)
-            for t in T:
-                for u in U:
-                    pi = con_balance_by_t_u[(t, u)].pi
-                    assert not numpy.isnan(pi) # What the.
-                    prizes[(t, u)] = - pi # TODO is this antiparallel or parallel
-
+            print('note prizes')
+            print('\tmax prize: %r' % (prizes.max(), ))
+            print('\tmin prize: %r' % (prizes.min(), ))
+            print('\tmax abs prize: %r' % (numpy.abs(prizes).max(), ))
 
             aux_solvers_by_id: typing.Dict[str, base.AuxiliarySolver] = { # TODO dep inject
                 'once-off': once_off_event.OnceOffEventAuxiliarySolver(),
@@ -178,11 +163,10 @@ def main():
 
     e_hat = numpy.load(fn)
 
-    e_hat = e_hat[:, :]
-
+    # mip library goes completely bananas if given unsigned integers
+    e_hat = numpy.asarray(e_hat, dtype=numpy.int64)
     n_time, n_type = e_hat.shape
 
-    print(repr((n_time, n_type)))
 
     T = numpy.arange(n_time)
     U = numpy.arange(n_type)
