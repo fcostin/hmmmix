@@ -32,9 +32,9 @@ def bootstrap_initial_basis(problem: base.MasterProblem):
 
     for t in T:
         for u in U:
-            if problem.e_hat[(t, u)] == 0:
-                continue
-            ub = problem.e_hat[(t, u)]
+            # Previously i wasn't generating any possible aux_soln for (t, u) in the
+            # case where e_hat[(t, u)] was zero. But maybe we should offer the option.
+
             prizes = numpy.zeros(shape=(len(T), len(U)), dtype=numpy.float64)
             prizes[(t, u)] = mega_desperate_prize
             aux_problem = base.AuxiliaryProblem(
@@ -48,7 +48,7 @@ def bootstrap_initial_basis(problem: base.MasterProblem):
             assert aux_soln.logprob < 0.0
             soln_id = make_soln_id('once-off', aux_soln.id)
             z_by_i[soln_id] = aux_soln
-            ub_by_i[soln_id] = ub
+            ub_by_i[soln_id] = max(problem.e_hat[(t, u)], 1)
     return z_by_i, ub_by_i
 
 
@@ -85,11 +85,13 @@ class RelaxedMasterSolver(base.MasterSolver):
         while True:
             print('iter...')
 
-            if False:
+            use_primal = True
+            if use_primal:
                 solver = exact_cover_solver_primal.PrimalExactCoverResourcePricingSolver(
                     regularisation_lambda=0.0,
                 )
-            solver = exact_cover_solver_dual.DualExactCoverResourcePricingSolver()
+            else:
+                solver = exact_cover_solver_dual.DualExactCoverResourcePricingSolver()
 
             cover_problem = exact_cover_base.ExactCoverResourcePricingProblem(
                 times=problem.times,
@@ -166,6 +168,7 @@ def main():
 
     # mip library goes completely bananas if given unsigned integers
     e_hat = numpy.asarray(e_hat, dtype=numpy.int64)
+    e_hat = e_hat[:, :]
     n_time, n_type = e_hat.shape
 
 
