@@ -9,8 +9,7 @@ from . import once_off_event # TODO master shouldnt depend on concrete aux solve
 
 from . import exact_cover_base
 from . import exact_cover_solver_primal
-
-REGULARISATION_LAMBDA = 1.0e-6
+from . import exact_cover_solver_dual
 
 
 def make_soln_id(solver_id, soln_id):
@@ -86,9 +85,11 @@ class RelaxedMasterSolver(base.MasterSolver):
         while True:
             print('iter...')
 
-            solver = exact_cover_solver_primal.PrimalExactCoverResourcePricingSolver(
-                regularisation_lambda=0.0,
-            )
+            if False:
+                solver = exact_cover_solver_primal.PrimalExactCoverResourcePricingSolver(
+                    regularisation_lambda=0.0,
+                )
+            solver = exact_cover_solver_dual.DualExactCoverResourcePricingSolver()
 
             cover_problem = exact_cover_base.ExactCoverResourcePricingProblem(
                 times=problem.times,
