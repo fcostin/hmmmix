@@ -181,8 +181,6 @@ def main():
     # mip library goes completely bananas if given unsigned integers
     e_hat = numpy.asarray(e_hat, dtype=numpy.int64)
 
-    # restrict to last year only, and only larger transactions
-    e_hat = e_hat[-365:, -2:]
     n_time, n_type = e_hat.shape
 
     print('note: there are %d total events in e_hat' % (e_hat.sum(), ))
