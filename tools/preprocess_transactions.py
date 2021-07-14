@@ -1,8 +1,16 @@
 import argparse
 import collections
 import numpy
-import os.path
 import re
+
+"""
+Purpose: preprocess transactions is a throwaway helper script to preprocess demo
+transaction data into an array of integer event counts of the form
+
+e[t, u]
+
+where t is an index over timesteps and u is an index over event types.
+"""
 
 Bucket = collections.namedtuple('Bucket', ['label', 'lower_bound', 'upper_bound'])
 
