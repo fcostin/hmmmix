@@ -30,33 +30,37 @@ pre-alpha prototype.
 
 ### TODO
 
-1.  theory - the argument used to justify the derivation in
+1.  Theory - the argument used to justify the derivation in
     `lib/hmmmix/base.py` is unclear, rework with clearer notation.
-2.  `lib/hmmix/exact_cover_solver_primal.py` definition of prizes from dual
+2.  `lib/hmmix/exact_cover_solver_primal.py`: Definition of prizes from dual
     solution may be incorrect. Figure out exactly what it should be and test
     that implementation is correct.
-3.  `lib/hmmix/exact_cover_solver_dual.py` doesn't work. make it work or delete
+3.  `lib/hmmix/exact_cover_solver_dual.py` doesn't work. Make it work or delete
     it.
-4.  convergence through successive restricted master problem seems slow.
-    sometimes adding a new column from auxiliary problem does not help improve
-    the objective value. try to understand what is going on and mitigate it.
-    ideas: auxiliary problems degenerate, many solutions with very similar
-    objectives?  is it possible to define cuts using master problem to further
+4.  Convergence through successive restricted master problem seems slow.
+    Sometimes adding a new column from auxiliary problem does not help improve
+    the objective value. Try to understand what is going on and mitigate it.
+    ideas: auxiliary problems potentially degenerate, potentially lots of
+    symmetery and many solutions (HMM trajectories) with very similar objective
+    function values. Is it possible to define cuts using master problem to further
     constraint auxiliary problem search space?
-5.  refactor `lib/hmmmix/master.py` into clean main app and master library.
-    Rework the solution bootstrapper and auxiliary problem solvers so they are
-    dependency injected into the library by the main app, and not hardcoded.
-6.  idea: what if replace once-off-event with a poisson process, parametrised by
+5.  Refactor `lib/hmmmix/master.py` into clean main app and master problem
+    library. Rework the solution bootstrapper and auxiliary problem solvers so
+    they are dependency injected into the library by the main app, and not
+    hardcoded.
+6.  Idea: what if replace once-off-event with a poisson process, parametrised by
     rate, that has probability of emitting 0, 1, 2, .. events each timestep.
-7.  defect: fix defect so that events at start and/or end times can be properly
-    modelled and recovered by `hmmmix/lattice/slowlattice.py`. First check that
-    the model defined in `genlattice.py` actually corresponds to some Markov
-    model. If it doesn't, reformulate it to make the definition clean.
-8.  performance: port the `hmmmix/lattice/slowlattice.py` kernel to Cython.
+7.  Defect: fix lattice issue so that events at start and/or end times can be
+    properly modelled and recovered by `hmmmix/lattice/slowlattice.py`. First
+    check that the model defined in `genlattice.py` actually corresponds to some
+    Markov model. If it doesn't, reformulate it to make the definition clean.
+8.  Performance: port the `hmmmix/lattice/slowlattice.py` kernel to Cython.
     Estimate 250x speedup may be feasible if rewrite simple python code as
     simple Cython code that can directly address slabs of pre-allocated memory.
-9.  theory - try to assess severity of approximation error introduced by
+9.  Theory - try to assess severity of approximation error introduced by
     replacing integration with maximisation. Is there a different approximation
     that could still be computationally feasible but with less error or better
     worst-case bounds?
-10. grow library of test scenarios from different problem domains
+10. Grow library of test scenarios from different problem domains.
+11. Performance: profile the running time of entire program, figure out
+    bottleneck
