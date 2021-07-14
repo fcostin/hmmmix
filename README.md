@@ -63,4 +63,6 @@ pre-alpha prototype.
     worst-case bounds?
 10. Grow library of test scenarios from different problem domains.
 11. Performance: profile the running time of entire program, figure out
-    bottleneck
+    bottleneck.
+12. Usability: document how to bring up a dev environment. Offer `Dockerfile`.
+13. QA: automate build, rig CI.
