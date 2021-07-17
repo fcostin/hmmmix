@@ -1,7 +1,6 @@
 import collections
 import numpy
 import typing
-import sys
 
 from . import base
 
@@ -12,8 +11,6 @@ from . import markov_event
 from . import exact_cover_base
 from . import exact_cover_solver_primal
 from . import exact_cover_solver_dual
-
-from .lattice import liblattice
 
 
 def make_soln_id(solver_id, soln_id):
@@ -146,13 +143,7 @@ class RelaxedMasterSolver(base.MasterSolver):
                 best_aux_solver_id = aux_solver_id
 
             if best_aux_soln is None:
-                print('converged')
-                print('')
-                print('solution:')
-                for i in sorted(cover_solution.z):
-                    weight = cover_solution.z[i]
-                    print('%.4f\t%s' % (weight, i))
-                return
+                return cover_solution
 
             print('best aux objective: %r' % (best_aux_objective, ))
 
@@ -171,33 +162,4 @@ class RelaxedMasterSolver(base.MasterSolver):
 
 
 
-def main():
-    liblattice.self_test()
 
-    fn = sys.argv[1]
-
-    e_hat = numpy.load(fn)
-
-    # mip library goes completely bananas if given unsigned integers
-    e_hat = numpy.asarray(e_hat, dtype=numpy.int64)
-
-    n_time, n_type = e_hat.shape
-
-    print('note: there are %d total events in e_hat' % (e_hat.sum(), ))
-
-    T = numpy.arange(n_time)
-    U = numpy.arange(n_type)
-
-    master = RelaxedMasterSolver()
-
-    problem = base.MasterProblem(
-        times=T,
-        event_types=U,
-        e_hat=e_hat,
-    )
-
-    soln = master.solve(problem)
-
-
-if __name__ == '__main__':
-    main()

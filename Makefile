@@ -3,8 +3,8 @@ LIBLATTICE=lib/hmmmix/lattice/liblattice.cpython-38-x86_64-linux-gnu.so
 all:	demo
 .PHONY:	all
 
-demo:	lib/hmmmix/master.py data/transactions.npy $(LIBLATTICE)
-	python -m lib.hmmmix.master $(word 2,$^)
+demo:	lib/hmmmix/main.py data/transactions.npy $(LIBLATTICE)
+	python -m lib.hmmmix.main $(word 2,$^)
 .PHONY:	demo
 
 clean:
