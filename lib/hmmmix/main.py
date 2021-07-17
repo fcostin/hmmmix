@@ -9,12 +9,11 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('input_fns', metavar='F', type=str, nargs=1,
         help='filename of input event count data (binary npy format)')
+    p.add_argument('--profile', '-p', action='store_true')
     return p.parse_args()
 
 
-def main():
-    args = parse_args()
-
+def do_solve(args):
     with open(args.input_fns[0], 'rb') as f:
         e_hat = numpy.load(f)
 
@@ -46,6 +45,21 @@ def main():
         weight = soln.z[i]
         print('%.4f\t%s' % (weight, i))
     return
+
+def main():
+    args = parse_args()
+
+    if args.profile:
+        import cProfile, pstats
+        with cProfile.Profile() as p:
+            try:
+                do_solve(args)
+            except KeyboardInterrupt:
+                pass
+        ps = pstats.Stats(p).sort_stats(pstats.SortKey.CUMULATIVE)
+        ps.print_stats(50)
+    else:
+        do_solve(args)
 
 
 if __name__ == '__main__':

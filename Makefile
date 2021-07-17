@@ -7,6 +7,12 @@ demo:	lib/hmmmix/main.py data/transactions.npy $(LIBLATTICE)
 	python -m lib.hmmmix.main $(word 2,$^)
 .PHONY:	demo
 
+demo-profile:	lib/hmmmix/main.py data/transactions.npy $(LIBLATTICE)
+	python -m lib.hmmmix.main --profile $(word 2,$^)
+.PHONY:	demo-profile
+
+
+
 clean:
 	rm -f data/transactions.npy
 .PHONY:	clean
