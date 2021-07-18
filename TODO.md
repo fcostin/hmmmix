@@ -65,7 +65,6 @@ each W^(m) is a D x K matrix, and the k-th state variable is represented as a
 size K vector with 1 in position k and 0s elsewhere.
 
 
-[gj97]: https://link.springer.com/content/pdf/10.1023/A:1007425814087.pdf
 
 
 
@@ -101,7 +100,7 @@ size K vector with 1 in position k and 0s elsewhere.
         objective function values. Is it possible to define cuts using master
         problem to further constraint auxiliary problem search space?
     
-    1.  Possible lead: [google/or-tools strawberry fields example][1] mentions
+    1.  Possible lead: [google/or-tools strawberry fields example][gorsf] mentions
         adding columns that are zero-length steepest pivot moves during simplex.
 
 1.  Defect: fix lattice issue so that events at start and/or end times can be
@@ -114,7 +113,6 @@ size K vector with 1 in position k and 0s elsewhere.
     modelled: split states that may emit into states "will emit" & "will not
     emit"
 
-[1]: https://github.com/google/or-tools/blob/b37d9c786b69128f3505f15beca09e89bf078a89/examples/cpp/strawberry_fields_with_column_generation.cc#L401-L409
 
 ### Software Gardening
 
@@ -157,3 +155,27 @@ size K vector with 1 in position k and 0s elsewhere.
 
 1.  Idea: what if replace once-off-event with a Poisson process, parametrised by
     rate, that has probability of emitting 0, 1, 2, .. events each timestep.
+
+### See also
+
+1.  [Srihari's lecture notes on HMM extensions][sri] briefly describes
+    factorial HMM.
+
+1.  [Schweiger, Erlich & Carmi (2019)][sec2019] published the [factorial_hmm]
+    Python package for exact inference on factorial HMMs.
+
+1.  Chiodini has shared an [example on github](lucach_fhmm_bach) that applies
+    factorial HMMs to learn and generate Bach sheet music.
+
+1.  Some practical tips about modelling that may be of use are discussed in the
+    [Stan User's Guide][stanug]. See discussion of HMMs, finite mixtures and
+    clustering.
+
+
+[gj97]: https://link.springer.com/content/pdf/10.1023/A:1007425814087.pdf
+[gorsf]: https://github.com/google/or-tools/blob/b37d9c786b69128f3505f15beca09e89bf078a89/examples/cpp/strawberry_fields_with_column_generation.cc#L401-L409
+[sri]: https://cedar.buffalo.edu/~srihari/CSE574/Chap13/Ch13.3-HMMExtensions.pdf
+[sec2019]: https://academic.oup.com/bioinformatics/article/35/12/2162/5184283
+[factorial_hmm]: https://github.com/regevs/factorial_hmm
+[lucach_fhmm_bach]: https://github.com/lucach/fhmm_bach
+[stanug]: https://mc-stan.org/docs/2_27/stan-users-guide/
