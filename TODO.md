@@ -164,7 +164,7 @@ size K vector with 1 in position k and 0s elsewhere.
 1.  [Schweiger, Erlich & Carmi (2019)][sec2019] published the [factorial_hmm]
     Python package for exact inference on factorial HMMs.
 
-1.  Chiodini has shared an [example on github](lucach_fhmm_bach) that applies
+1.  Chiodini has shared an [example on github][lucach_fhmm_bach] that applies
     factorial HMMs to learn and generate Bach sheet music.
 
 1.  Some practical tips about modelling that may be of use are discussed in the
