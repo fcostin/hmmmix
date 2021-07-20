@@ -64,7 +64,12 @@ mu_t = sum_{m=1...M} W^(m) S_t^(m)
 each W^(m) is a D x K matrix, and the k-th state variable is represented as a
 size K vector with 1 in position k and 0s elsewhere.
 
+### Decomposition Approaches
 
+[Martins et. al. 2011][dd-admm-2011] "An Augmented Lagrangian Approach to
+Constrained MAP Inference" discusses various approaches to approximate MAP
+inference, including linear programming relaxations, message-passing, and dual
+decomposition.
 
 
 
@@ -102,6 +107,13 @@ size K vector with 1 in position k and 0s elsewhere.
     
     1.  Possible lead: [google/or-tools strawberry fields example][gorsf] mentions
         adding columns that are zero-length steepest pivot moves during simplex.
+    
+    1.  Possible lead: [Rubin in sci.op-research][pr-sci-or-list] mailing thread
+        suggests checking for degeneracy and, if detected, temporarily
+        perturbing the rhs and using the resulting shadow prices from that.
+        
+    1.  Paper: [Gauthier et. al. 2016][degenerate2016] Tools for primal
+        degenerate linear programs: IPS, DCA, and PE.
 
 1.  Defect: fix lattice issue so that events at start and/or end times can be
     properly modelled and recovered by `hmmmix/lattice/slowlattice.py`.
@@ -179,3 +191,6 @@ size K vector with 1 in position k and 0s elsewhere.
 [factorial_hmm]: https://github.com/regevs/factorial_hmm
 [lucach_fhmm_bach]: https://github.com/lucach/fhmm_bach
 [stanug]: https://mc-stan.org/docs/2_27/stan-users-guide/
+[pr-sci-or-list]: https://sci.op-research.narkive.com/xPi96STl/handling-degeneracy-during-column-generation
+[degenerate2016]: https://www.sciencedirect.com/science/article/pii/S2192437620301011
+[dd-admm-2011]: https://www.cs.cmu.edu/~afm/Home_files/icml2011_main.pdf
