@@ -1,12 +1,15 @@
-\documentclass[12pt]{article}
+\documentclass[twoside, 11pt]{article}
+
+\usepackage{jmlr2e}
 
 \usepackage{amsmath}
 \usepackage{amsfonts}
 
-\newcommand{\xx}[0] {\mathbb{X}} % model space
-\newcommand{\hh}[0] {\mathbb{H}} % model space
-\newcommand{\zz}[0] {\mathbb{Z}} % model space
-\newcommand{\mm}[0] {\mathbb{M}} % model space
+\newcommand{\xx}[0] {\mathbb{X}} % decision variable space
+\newcommand{\hh}[0] {\mathbb{H}} % stochastic process for state
+\newcommand{\zz}[0] {\mathbb{Z}} % hidden event space?
+\newcommand{\mm}[0] {\mathbb{M}} % HMM model type space
+\newcommand{\TT}[0] {\mathbb{T}} % time indices
 \newcommand{\traj}[1] {H^{(#1)}}
 \newcommand{\state}[2] {H_{#2}^{(#1)}}
 \newcommand{\event}[2] {Z_{#2}^{(#1)}}
@@ -19,6 +22,40 @@
 \DeclareMathOperator*{\argmin}{arg\,min}
 
 \begin{document}
+
+\title{MAP inference of sparse factorial hidden Markov models}
+
+\maketitle
+
+\begin{abstract}%
+hello
+\end{abstract}
+
+\section{Probabilistic model}
+We start by assuming a family of hidden Markov models, indexed by $m \in \mm$. Each model $m \in \mm$ in the family has a finite state space $S_m$ consisting of $K_m \in \naturals$ states $\{s_1, \ldots, s_{K_m}\}$. The state of the model $m$ at time $t \in \TT = \{ 1, \ldots, T \}$ is denoted by the random variable $H_{m, t}$ which takes values in the state space $S_m$. We regard the states as not directly observable and will often refer to them as hidden (aka latent) states. The hidden states of model $m$ evolve in time independently from other models according to a discrete time first-order Markov process
+\begin{equation}
+P(H_{m,t+1} \mid \{ H_{m^{\prime},t^{\prime}} \}_{m^{\prime}, t^{\prime} \in \mm \times \TT \setminus \{m, t\}} )
+=
+P(H_{m,t+1} \mid H_{m,t} )
+\end{equation}
+and we write $\pi_m$ to denote a prior distribution over $H_{m,1}$ at $t=1$.
+
+Each hidden Markov model $m$ emits a sequence of events $Z_{m,1}, \ldots, Z_{m,T}$, where each $Z_{m,t} \in \events$. The space of events $\events$ is assumed to be a vector space over $\reals$. Each $Z_{m,t}$ is assumed to be caused solely by the corresponding hidden state $H_{m,t}$:
+\begin{equation}
+P\left(Z_{m,t}
+\mid
+\{ H_{m^{\prime},t^{\prime}} \}_{m^{\prime}, t^{\prime} \in \mm \times \TT} \;
+\{ Z_{m^{\prime},t^{\prime}} \}_{m^{\prime}, t^{\prime} \in \mm \times \TT \setminus \{m, t\}}
+\right)
+=
+P(Z_{m,t} \mid H_{m,t} ) .
+\end{equation}
+We will refer to $P(Z_{m, t} \mid H_{m,t} )$ as the observation model for the $m$th model.
+
+% todo define factorial model out of component hidden markov models. linear combination with bit vector x_i i in I. Define y. Emphasise that our observation models for the component models are now decreed to be non observable
+
+\emph{TODO delete / rework below}
+
 Let $\{ \traj m \}_m$ be a family of possible trajectories of first-order Markov processes, indexed by $m \in \mm$. For each $m \in \mm$ let $S_m = \{s_1, \ldots, s_{K^{(m)}}\}$, $K^{(m)} \in \naturals$, denote the finite state space of hidden states that the $m$th Markov process transitions between. The state of each trajectory $\traj m$ is defined as the vector of hidden states over time: $\traj m = (\state m 1, \ldots \state m T)$, where each $\state m t \in S_m$.
 
 We assume that although the family of possible Markov processes $\{\traj m\}_{m \in \mm}$ may be very large, only a sparse subset of processes are active and contribute indirectly toward observable events. Let $X = \{X_m\}_{m \in \mm}$ denote a vector of binary variables $X_m \in \{0, 1\}$, with the interpretation that $\traj m$ is active iff $X_m = 1$. We assume $X$ is stationary, that is, the set of active processes $\{ \traj m : X_m = 1\}_{m \in \mm}$ does not vary with respect to time $t$.
