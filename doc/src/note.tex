@@ -10,6 +10,7 @@
 \newcommand{\zz}[0] {\mathbb{Z}} % hidden event space?
 \newcommand{\mm}[0] {\mathbb{M}} % HMM model type space
 \newcommand{\TT}[0] {\mathbb{T}} % time indices
+\newcommand{\II}[0] {\mathbb{I}} % factorial model indices
 \newcommand{\traj}[1] {H^{(#1)}}
 \newcommand{\state}[2] {H_{#2}^{(#1)}}
 \newcommand{\event}[2] {Z_{#2}^{(#1)}}
@@ -23,22 +24,50 @@
 
 \begin{document}
 
-\title{MAP inference of sparse factorial hidden Markov models}
+\author{\name Reuben Fletcher-Costin}
+
+\editor{}
+
+\title{Approximate MAP inference of sparse factorial hidden Markov models through set cover decomposition}
 
 \maketitle
 
 \begin{abstract}%
-hello
+Our goal is to infer a sparse subset of hidden Markov models (HMMs) that collectively explain a sequence of observations. We define a probabilistic model for a simple form of factorial HMMs and pose a maximum a posteriori (MAP) estimation problem to infer a sparse subset of component HMM, their hidden states, and separate the observations into component signals associated with each component HMM. We show that the MAP estimation problem is equivalent to an exact cover problem, where each component HMM is regarded as a set that covers a portion of the observed signal. This permits a relaxed approximation of the problem to be decomposed as a master set cover problem and auxiliary problem using column generation. Each auxiliary problem can be solved efficiently using dynamic programming by a "prize-collecting" modified Viterbi algorithm that recovers a HMM trajectory that incorporates prizes from the master problem for explaining portions of the observed signal.
 \end{abstract}
 
+% keywords could go here
+
+\section{Introduction}
+
+Todo.
+
+\begin{itemize}
+
+\item why anyone might care about HMMs
+
+\item separation problems, why anyone might care about those
+
+\item HMMs
+
+\item Factorial HMMs
+
+\item alternatives to HMMs
+
+\item linear programming and convex optimisation decompositions
+
+\end{itemize}
+
 \section{Probabilistic model}
+
+\subsection{Hidden Markov models}
 We start by assuming a family of hidden Markov models, indexed by $m \in \mm$. Each model $m \in \mm$ in the family has a finite state space $S_m$ consisting of $K_m \in \naturals$ states $\{s_1, \ldots, s_{K_m}\}$. The state of the model $m$ at time $t \in \TT = \{ 1, \ldots, T \}$ is denoted by the random variable $H_{m, t}$ which takes values in the state space $S_m$. We regard the states as not directly observable and will often refer to them as hidden (aka latent) states. The hidden states of model $m$ evolve in time independently from other models according to a discrete time first-order Markov process
 \begin{equation}
 P(H_{m,t+1} \mid \{ H_{m^{\prime},t^{\prime}} \}_{m^{\prime}, t^{\prime} \in \mm \times \TT \setminus \{m, t\}} )
 =
 P(H_{m,t+1} \mid H_{m,t} )
 \end{equation}
-and we write $\pi_m$ to denote a prior distribution over $H_{m,1}$ at $t=1$.
+We assume that the transition model $P(H_{m,t+1} \mid H_{m,t} )$ for each $m \in \mm$ is stationary, that is, there exists some stochastic matrix $A^{m}$ with elements $A^{m}_{s^{\prime}, s} = P(H_{m, t+1}=s^{\prime} \mid H_{m,t}=s)$. We write $\pi_m$ to denote a prior distribution over $H_{m,1}$ at $t=1$.
 
 Each hidden Markov model $m$ emits a sequence of events $Z_{m,1}, \ldots, Z_{m,T}$, where each $Z_{m,t} \in \events$. The space of events $\events$ is assumed to be a vector space over $\reals$. Each $Z_{m,t}$ is assumed to be caused solely by the corresponding hidden state $H_{m,t}$:
 \begin{equation}
@@ -50,26 +79,30 @@ P\left(Z_{m,t}
 =
 P(Z_{m,t} \mid H_{m,t} ) .
 \end{equation}
-We will refer to $P(Z_{m, t} \mid H_{m,t} )$ as the observation model for the $m$th model.
+We will refer to $P(Z_{m, t} \mid H_{m,t} )$ as the observation model for the $m$th model. We assume the observation model for each $m \in \mm$ is stationary with respect to $t$.
 
-% todo define factorial model out of component hidden markov models. linear combination with bit vector x_i i in I. Define y. Emphasise that our observation models for the component models are now decreed to be non observable
+\subsection{Factorial hidden Markov model}
 
-\emph{TODO delete / rework below}
+TODO
+\begin{itemize}
+\item note slightly different definition to Ghahramani and Jordan 1997.
+\item be less vague about index set $\II$.
+\end{itemize}
 
-Let $\{ \traj m \}_m$ be a family of possible trajectories of first-order Markov processes, indexed by $m \in \mm$. For each $m \in \mm$ let $S_m = \{s_1, \ldots, s_{K^{(m)}}\}$, $K^{(m)} \in \naturals$, denote the finite state space of hidden states that the $m$th Markov process transitions between. The state of each trajectory $\traj m$ is defined as the vector of hidden states over time: $\traj m = (\state m 1, \ldots \state m T)$, where each $\state m t \in S_m$.
+We consider factorial hidden Markov models consisting of a multiset of component hidden Markov models. We index the possible component HMMs in our factorial model using $i \in \II$. Let $m(i) \in \mm$ denote the component HMM associated with the $i$th index. We will represent a particular factorial model by the vector $(X_i)_{i \in \II}$, where each $X_i$ can be regarded as a random variable over the states $\{0, 1\}$. A value of $X_i=1$ indicates that the component HMM $m(i) \in \mm$ participates in the factorial model represented by $X = (X_i)_{i \in \II}$ .
 
-We assume that although the family of possible Markov processes $\{\traj m\}_{m \in \mm}$ may be very large, only a sparse subset of processes are active and contribute indirectly toward observable events. Let $X = \{X_m\}_{m \in \mm}$ denote a vector of binary variables $X_m \in \{0, 1\}$, with the interpretation that $\traj m$ is active iff $X_m = 1$. We assume $X$ is stationary, that is, the set of active processes $\{ \traj m : X_m = 1\}_{m \in \mm}$ does not vary with respect to time $t$.
-
-At each $t \in T$ the $m$th Markov process emits an event $\event m t \ \in \events$, where the space of events, $\events$, is a vector space over $\reals$. These events emitted by specific Markov processes are not directly observable, like the state of the generating Markov processes the events are also hidden variables. Each Markov process defines an observation model where the conditional probability of emitting an event depends only upon the current hidden state of that process:
+Unlike the standard HMM situation where a single HMM with some hidden state is assumed to output a directly observable signal each time step, the factorial HMM assumes that the output of each HMM is not directly observable, but we are able to observe a signal $Y_t$ each $t \in \TT$ that aggregates contributions from the outputs of component models. We define this as the sum of the participating component signals:
 \begin{equation}
-P\left(\event m t = z \mid \{\state {m^\prime} s\}_{m^\prime \in \mm, s \in T} \right) =
-P\left(\event m t = z \mid \state m t \right) \label{obsmodelindep}
+Y_t = \sum_{i \in \II} X_i \event i t ,
 \end{equation}
+where we have introduced $\event i t = Z_{m(i), t}$. Note that there is no error term, errors can be modelled inside the $\event i t$ through the observation models of the component HMMs or alternatively by defining one or more component HMMs $m \in \mm$ to represent possible "error" signals.
 
-At each time $t \in T$ we observe some event $Y_t \in \events$ that aggregates contributions from each hidden event $\event m t$ generated by the active set Markov processes $\{ \traj m : X_m = 1\}_{m \in \mm}$. Let $Y$ denote the sequence of observations $\{Y_t\}_t$ indexed over time $t \in T$, where each element is given by
-\begin{equation}
-Y_t = \sum_{m \in \mm} X_m \event m t .
-\end{equation}
+\section{Inference}
+
+TODO
+\begin{itemize}
+\item rework in terms of $i \in \II$.
+\end{itemize}
 
 Our goal is to infer a sparse subset of Markov processes that collectively explain the sequence of observations $Y$. Ideally we wish to estimate the posterior distribution $P(X | Y)$ of the activity parameter $X$. This is computationally challenging as it involves integrating over the states of all hidden trajectories $\{ \traj m\}_{m \in \mm}$ and potential hidden events $\{ Z_m \}_{m \in \mm}$. A much more tractable task is to instead compute a maximum a posteriori parameter estimate of the triple $(X, H, Z) = (X_m, \traj m, Z_m)_{m \in \mm}$ given the observed data $Y$.
 
@@ -140,5 +173,7 @@ with respect to $(X, H, Z)$.
 % are in X ?
 
 % TODO fixup notation, use Z^(m) not Z_(m) for consistency
+
+% TODO bibiliography
 
 \end{document}
