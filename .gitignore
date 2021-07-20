@@ -6,3 +6,6 @@
 .~lock*
 /.idea
 __pycache__
+/doc/*.log
+/doc/*.aux
+/doc/*.pdf
