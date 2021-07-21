@@ -4,6 +4,22 @@
 
 \usepackage{amsmath}
 \usepackage{amsfonts}
+\usepackage{mathtools}
+
+% ensure sufficient marginspace for todos
+\setlength {\marginparwidth }{2cm}
+\usepackage[obeyFinal]{todonotes}
+% \setuptodonotes{inline}
+
+% define notation for norm and abs that scale nicely.
+% ref: https://tex.stackexchange.com/a/297263
+\let\oldnorm\norm
+\let\norm\undefined
+\DeclarePairedDelimiter\norm{\lVert}{\rVert}
+
+\let\oldabs\abs
+\let\abs\undefined
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}
 
 \newcommand{\xx}[0] {\mathbb{X}} % decision variable space
 \newcommand{\hh}[0] {\mathbb{H}} % stochastic process for state
@@ -40,28 +56,16 @@ Our goal is to infer a sparse subset of hidden Markov models (HMMs) that collect
 
 \section{Introduction}
 
-Todo.
-
-\begin{itemize}
-
-\item why anyone might care about HMMs
-
-\item separation problems, why anyone might care about those
-
-\item HMMs
-
-\item Factorial HMMs
-
-\item alternatives to HMMs
-
-\item linear programming and convex optimisation decompositions
-
-\end{itemize}
+\todo[inline]{why care about HMMs}
+\todo[inline]{why care about separation problems}
+\todo[inline]{discuss factorial HMMs}
+\todo[inline]{discuss alternatives to factorial HMMs}
+\todo[inline]{intro linear programming decompositions, convex optimisation decompositions}
 
 \section{Probabilistic model}
 
 \subsection{Hidden Markov models}
-We start by assuming a family of hidden Markov models, indexed by $m \in \mm$. Each model $m \in \mm$ in the family has a finite state space $S_m$ consisting of $K_m \in \naturals$ states $\{s_1, \ldots, s_{K_m}\}$. The state of the model $m$ at time $t \in \TT = \{ 1, \ldots, T \}$ is denoted by the random variable $H_{m, t}$ which takes values in the state space $S_m$. We regard the states as not directly observable and will often refer to them as hidden (aka latent) states. The hidden states of model $m$ evolve in time independently from other models according to a discrete time first-order Markov process
+We start by assuming a family of hidden Markov models, indexed by $m \in \mm$. Each model $m \in \mm$ in the family has a finite state space $S_m$ consisting of $K_m \in \naturals$ states $\{s_1, \ldots, s_{K_m}\}$. The state of the model $m$ at time $t \in \TT = \{ 1, \ldots, T \}$ is denoted by the random variable $H_{m, t}$ which takes values in the state space $S_m$. We regard the states as not directly observable and refer to them as hidden (aka latent) states. The hidden states of model $m$ evolve in time independently from other models according to a discrete time first-order Markov process
 \begin{equation}
 P(H_{m,t+1} \mid \{ H_{m^{\prime},t^{\prime}} \}_{m^{\prime}, t^{\prime} \in \mm \times \TT \setminus \{m, t\}} )
 =
@@ -79,32 +83,26 @@ P\left(Z_{m,t}
 =
 P(Z_{m,t} \mid H_{m,t} ) .
 \end{equation}
-We will refer to $P(Z_{m, t} \mid H_{m,t} )$ as the observation model for the $m$th model. We assume the observation model for each $m \in \mm$ is stationary with respect to $t$.
+We refer to $P(Z_{m, t} \mid H_{m,t} )$ as the observation model for the $m$th model. We assume the observation model for each $m \in \mm$ is stationary with respect to $t$.
 
 \subsection{Factorial hidden Markov model}
 
-TODO
-\begin{itemize}
-\item note slightly different definition to Ghahramani and Jordan 1997.
-\item be less vague about index set $\II$.
-\end{itemize}
+We consider factorial hidden Markov models consisting of a multiset of component hidden Markov models, where the possible component HMMs are indexed by $i \in \II$. Let $m(i) \in \mm$ denote the component HMM associated with the $i$th index. We represent a particular factorial model by the sequence $(X_i)_{i \in \II}$, where each $X_i$ can be regarded as a random variable over the states $\{0, 1\}$. A value of $X_i=1$ indicates that the component HMM $m(i) \in \mm$ participates in the factorial model represented by $X = (X_i)_{i \in \II}$ . We are interested in identifying a factorial hidden Markov model with components $(X_i)_{i \in \II}$ that explains some given observed signal $Y_t \in \events$ for $t \in \TT$. We restrict our focus to sparse factorial models where $\norm{X}_1$ is bounded, that is, there exists $n \in \naturals$ such that $\sum_{i \in \II} \abs{X_i} \leq n$. Note that the cardinality of the abstract index set $\II$ may not be finite. We defer explictly constructing $\II$. 
 
-We consider factorial hidden Markov models consisting of a multiset of component hidden Markov models. We index the possible component HMMs in our factorial model using $i \in \II$. Let $m(i) \in \mm$ denote the component HMM associated with the $i$th index. We will represent a particular factorial model by the vector $(X_i)_{i \in \II}$, where each $X_i$ can be regarded as a random variable over the states $\{0, 1\}$. A value of $X_i=1$ indicates that the component HMM $m(i) \in \mm$ participates in the factorial model represented by $X = (X_i)_{i \in \II}$ .
-
-Unlike the standard HMM situation where a single HMM with some hidden state is assumed to output a directly observable signal each time step, the factorial HMM assumes that the output of each HMM is not directly observable, but we are able to observe a signal $Y_t$ each $t \in \TT$ that aggregates contributions from the outputs of component models. We define this as the sum of the participating component signals:
+Recall the standard case of a single HMM with a hidden state that is assumed to output a directly observable signal at each time step. In contrast, with a factorial HMM the output of each component HMM is not directly observable. Instead we are able to observe a signal $Y_t$ each $t \in \TT$ that aggregates contributions from the output signals of all component HMMs:
 \begin{equation}
 Y_t = \sum_{i \in \II} X_i \event i t ,
 \end{equation}
-where we have introduced $\event i t = Z_{m(i), t}$. Note that there is no error term, errors can be modelled inside the $\event i t$ through the observation models of the component HMMs or alternatively by defining one or more component HMMs $m \in \mm$ to represent possible "error" signals.
+where we have introduced $\event i t := Z_{m(i), t}$. Note that unlike the definition of the factorial hidden Markov model given by {Ghahramani and Jordan 1997}\todo{CITE} we assume there is no error term. Error terms can be expressed by $\event i t$ through the observation models of the component HMMs.
 
 \section{Inference}
 
-TODO
-\begin{itemize}
-\item rework in terms of $i \in \II$.
-\end{itemize}
+\todo{rework in terms of index set $\II$. that will allow multiple copies of a single class of markov model to appear in solution. that's fine, as long as they each pay their way by justifying another copy of the log prior in the objective function}
 
-Our goal is to infer a sparse subset of Markov processes that collectively explain the sequence of observations $Y$. Ideally we wish to estimate the posterior distribution $P(X | Y)$ of the activity parameter $X$. This is computationally challenging as it involves integrating over the states of all hidden trajectories $\{ \traj m\}_{m \in \mm}$ and potential hidden events $\{ Z_m \}_{m \in \mm}$. A much more tractable task is to instead compute a maximum a posteriori parameter estimate of the triple $(X, H, Z) = (X_m, \traj m, Z_m)_{m \in \mm}$ given the observed data $Y$.
+\todo{fixup notation to use $Z^(i)$ not $Z_(m)$}
+
+
+Our goal is to infer a sparse subset of Markov processes that collectively explain a sequence of observations $Y = (Y_t)_{t \in \TT}$. Ideally we wish to estimate the posterior distribution $P(X | Y)$ of $X = (X_i)_{i \in \II$}. This is computationally challenging as it involves integrating over the states of all hidden trajectories $\{ \traj m\}_{m \in \mm}$ and potential hidden events $\{ Z_m \}_{m \in \mm}$. A much more tractable task is to instead compute a maximum a posteriori parameter estimate of the triple $(X, H, Z) = (X_m, \traj m, Z_m)_{m \in \mm}$ given the observed data $Y$.
 
 To see why this is more tractable, consider the following factorisation of the conditional probability of the variables $X, H, Z$ given the data $Y$:
 \begin{align}
@@ -163,17 +161,6 @@ C(\eventseq m, \traj m) =
 and we have dropped terms from the $\argmax$ that are constant
 with respect to $(X, H, Z)$.
 
-% TODO change variables, prove equivalent to linear program
-
-% TODO changing variables will allow multiple copies of a single
-% class of Markov process to appear in the solution. That's fine.
-% it'd be cleaner to rework notation so this is possible from
-% the beginning. Let x select 0, 1 or many copies of each m
-% instead of writing X_m write m(X) for how many copies of m
-% are in X ?
-
-% TODO fixup notation, use Z^(m) not Z_(m) for consistency
-
-% TODO bibiliography
+\todo{bibiliography}
 
 \end{document}
