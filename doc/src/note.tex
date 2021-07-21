@@ -99,10 +99,10 @@ where we have introduced $\event i t := Z_{m(i), t}$. Note that unlike the defin
 
 \todo{rework in terms of index set $\II$. that will allow multiple copies of a single class of markov model to appear in solution. that's fine, as long as they each pay their way by justifying another copy of the log prior in the objective function}
 
-\todo{fixup notation to use $Z^(i)$ not $Z_(m)$}
+\todo{fixup notation to use $Z^{(i)}$ not $Z_(m)$}
 
 
-Our goal is to infer a sparse subset of Markov processes that collectively explain a sequence of observations $Y = (Y_t)_{t \in \TT}$. Ideally we wish to estimate the posterior distribution $P(X | Y)$ of $X = (X_i)_{i \in \II}$. This is computationally challenging as it involves integrating over the states of all hidden trajectories $\{ \traj m\}_{m \in \mm}$ and potential hidden events $\{ Z_m \}_{m \in \mm}$. A much more tractable task is to instead compute a maximum a posteriori parameter estimate of the triple $(X, H, Z) = (X_m, \traj m, Z_m)_{m \in \mm}$ given the observed data $Y$.
+Our goal is to infer a sparse subset of Markov processes that collectively explain a sequence of observations $Y = (Y_t)_{t \in \TT}$. Ideally we wish to estimate the posterior distribution $P(X | Y)$ of $X = (X_i)_{i \in \II}$. This is computationally challenging as it involves integrating over all the hidden states $\state i t$ and all outputs $\event i t$ for all $t \in \TT$ and all potential component models $i \in \II$. A more tractable task is to instead compute a maximum a posteriori parameter estimate of the quad $(X, H, Z) = (X_i, m(i), \traj i, Z^{(i)})_{i \in \II}$ given the observed data $Y$.
 
 To see why this is more tractable, consider the following factorisation of the conditional probability of the variables $X, H, Z$ given the data $Y$:
 \begin{align}
@@ -161,6 +161,27 @@ C(\eventseq m, \traj m) =
 and we have dropped terms from the $\argmax$ that are constant
 with respect to $(X, H, Z)$.
 
-\todo{bibiliography}
+\section{Practical considerations}
+
+{bootstrapping initial feasible solution so there is a dual solution that can be used to set initial prizes}\todo{elabourate}
+
+{decomposition of MAP estimation problem into master relaxed exact cover problem and auxiliary prize-collecting Viterbi dynamic programming problem allows many complex problem specific details to be handled as part of the dynamic programming}\todo{elabourate}
+
+{degeneracy / slow convergence of restricted relaxed master linear program}\todo{investigate and mitigate}
+
+{exactly when is the dual solution used to set prizes well defined -- over which range?}\todo{investigate}
+
+{efficient search over particular families of HMMs}\todo{investigate}
+
+{embed into full branch and price regime}\todo{investigate}
+
+{reducing wasted effort by reusing LP bookkeeping & prior soln to warm-start over successive LP solves}\todo{investigate}
+
+\section{Variations}
+
+{maybe hard equality constraint linking Y to Z is not pragmatic. if soften constraint and allow nonzero error $r$ one naive implementation might add factor $k \exp(-\frac{\norm{r}^2}{{\sigma^2}})$ to unlogged objective function. equivalently when objective is logged, this adds some $- \norm{r}^2$ term. seems to give some kind of quadratic optimisation problem. can decomposition still work?}\todo{investigate}
+
+\section{bibliography}
+\todo{setup bibtex etc}
 
 \end{document}
