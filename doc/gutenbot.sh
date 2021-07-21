@@ -14,21 +14,24 @@
 # bind-mounted into the container for build input and
 # build output respectively).
 #
-# ./gutenbot_pdflatex.sh src/somefile.tex
+# ./gutenbot.sh pdflatex \
+#	-interaction nonstopmode \
+#	-output-directory /work/out \
+#	src/somefile.tex
 
 set -euo pipefail
 
 docker build -t gutenbot:dev -f gutenbot.Dockerfile .
 
+ENTRYPOINT=$1
+
+shift 1 # pop $1 from $@; we defer tail of $@ to entrypoint
+
 docker run --rm \
   --name gutenbot \
   --mount type=bind,source="$(pwd)"/src,target=/work/src \
   --mount type=bind,source="$(pwd)"/out,target=/work/out \
-  --entrypoint /bin/pdflatex \
+  --entrypoint "$ENTRYPOINT" \
   gutenbot:dev \
-  -interaction nonstopmode \
-  -output-directory /work/out \
-  -output-format pdf \
-  /work/$1
-
+  $@
 

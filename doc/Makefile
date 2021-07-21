@@ -1,2 +1,9 @@
+draft:	out/note.pdf
+.PHONY: draft
+
 out/note.pdf:	src/note.tex
-	./gutenbot_pdflatex.sh $<
+	./gutenbot.sh pdflatex \
+		-interaction nonstopmode \
+		-output-directory /work/out \
+		/work/$<
+
