@@ -102,7 +102,7 @@ where we have introduced $\event i t := Z_{m(i), t}$. Note that unlike the defin
 \todo{fixup notation to use $Z^(i)$ not $Z_(m)$}
 
 
-Our goal is to infer a sparse subset of Markov processes that collectively explain a sequence of observations $Y = (Y_t)_{t \in \TT}$. Ideally we wish to estimate the posterior distribution $P(X | Y)$ of $X = (X_i)_{i \in \II$}. This is computationally challenging as it involves integrating over the states of all hidden trajectories $\{ \traj m\}_{m \in \mm}$ and potential hidden events $\{ Z_m \}_{m \in \mm}$. A much more tractable task is to instead compute a maximum a posteriori parameter estimate of the triple $(X, H, Z) = (X_m, \traj m, Z_m)_{m \in \mm}$ given the observed data $Y$.
+Our goal is to infer a sparse subset of Markov processes that collectively explain a sequence of observations $Y = (Y_t)_{t \in \TT}$. Ideally we wish to estimate the posterior distribution $P(X | Y)$ of $X = (X_i)_{i \in \II}$. This is computationally challenging as it involves integrating over the states of all hidden trajectories $\{ \traj m\}_{m \in \mm}$ and potential hidden events $\{ Z_m \}_{m \in \mm}$. A much more tractable task is to instead compute a maximum a posteriori parameter estimate of the triple $(X, H, Z) = (X_m, \traj m, Z_m)_{m \in \mm}$ given the observed data $Y$.
 
 To see why this is more tractable, consider the following factorisation of the conditional probability of the variables $X, H, Z$ given the data $Y$:
 \begin{align}
