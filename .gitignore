@@ -10,3 +10,4 @@ __pycache__
 /doc/out/*.aux
 /doc/out/*.pdf
 /doc/out/*.out
+/doc/out/*.tdo
