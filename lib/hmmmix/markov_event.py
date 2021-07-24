@@ -39,6 +39,11 @@ class MarkovEventAuxiliarySolver(base.AuxiliarySolver):
 
             candidate_description = 'u=%d;' % (u, ) + ('-'.join(fancy_state_trajectory))
 
+            # TODO it is defective to implement banning solutions like this -
+            # a correct implementation needs to implement banned solutions
+            # as constraints in the modified Viterbi lattice problem. E.g.
+            # if the best 3 solutions are banned, the Viterbi lattice problem
+            # should spit out the 4th best.
             if candidate_description in self.banned_ids:
                 continue
 

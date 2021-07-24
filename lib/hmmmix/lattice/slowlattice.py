@@ -14,6 +14,8 @@ _LOGPROB_PRIOR = numpy.asarray([genlattice.LOGPROB_PRIOR_BY_STATE[s] for s in ge
 
 
 def search_best_path(times, prizes):
+    # TODO also need to also accept constraints banning solutions.
+
     # times must be array of time indices 0...T-1
     # prizes must be shape (T, ) array of prizes (unit: logprob units per event).
 
