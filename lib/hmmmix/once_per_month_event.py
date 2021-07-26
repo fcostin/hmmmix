@@ -4,7 +4,7 @@ import typing
 from . import base
 
 
-# TODO FIXME speedup this using bottom up dynamic programming over lattice of
+# TODO FIXME speedup this using bottom up dynamic programming over trellis of
 # T * S where S is hidden states giving clock of generating process.
 
 def iter_ongoing_patterns(month_duration, T):

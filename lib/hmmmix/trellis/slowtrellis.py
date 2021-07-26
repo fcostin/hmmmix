@@ -1,16 +1,16 @@
 import numpy
 
-from . import genlattice
+from . import gentrellis
 
-_STATE_TO_INDEX = {s:i for i, s in enumerate(genlattice.STATES)}
-_STATES = numpy.asarray([_STATE_TO_INDEX[s] for s in genlattice.STATES], dtype=int)
+_STATE_TO_INDEX = {s:i for i, s in enumerate(gentrellis.STATES)}
+_STATES = numpy.asarray([_STATE_TO_INDEX[s] for s in gentrellis.STATES], dtype=int)
 
 def _encode_edge(edge):
-    return genlattice.Edge(succ=_STATE_TO_INDEX[edge.succ], weight=edge.weight, delta_e=edge.delta_e)
+    return gentrellis.Edge(succ=_STATE_TO_INDEX[edge.succ], weight=edge.weight, delta_e=edge.delta_e)
 
-_OUTGOING_EDGES = {_STATE_TO_INDEX[s]:[_encode_edge(edge) for edge in genlattice.OUTGOING_EDGES_BY_STATE[s]] for s in genlattice.STATES}
+_OUTGOING_EDGES = {_STATE_TO_INDEX[s]:[_encode_edge(edge) for edge in gentrellis.OUTGOING_EDGES_BY_STATE[s]] for s in gentrellis.STATES}
 
-_LOGPROB_PRIOR = numpy.asarray([genlattice.LOGPROB_PRIOR_BY_STATE[s] for s in genlattice.STATES], dtype=numpy.float64)
+_LOGPROB_PRIOR = numpy.asarray([gentrellis.LOGPROB_PRIOR_BY_STATE[s] for s in gentrellis.STATES], dtype=numpy.float64)
 
 
 def search_best_path(times, prizes):
@@ -27,7 +27,7 @@ def search_best_path(times, prizes):
         prizes,
     )
     # translate from state indices back into fancy states
-    fancy_state_trajectory = [genlattice.prettystate(genlattice.STATES[s]) for s in state_trajectory]
+    fancy_state_trajectory = [gentrellis.prettystate(gentrellis.STATES[s]) for s in state_trajectory]
 
     return (objective_star, logprob_star, fancy_state_trajectory, obs_trajectory)
 

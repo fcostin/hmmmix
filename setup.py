@@ -5,5 +5,5 @@ setup(
     packages = find_packages("lib"),
     package_dir = {"": "lib"},
     package_data = {},
-    ext_modules = cythonize("lib/hmmmix/lattice/liblattice.pyx")
+    ext_modules = cythonize("lib/hmmmix/trellis/libtrellis.pyx")
 )

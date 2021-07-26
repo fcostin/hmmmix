@@ -248,10 +248,10 @@ constraint that `G(p')=1`.
 
 ##### Defects
 
-1.  fix lattice issue so that events at start and/or end times can be
-    properly modelled and recovered by `hmmmix/lattice/slowlattice.py`.
+1.  fix trellis issue so that events at start and/or end times can be
+    properly modelled and recovered by `hmmmix/trellis/slowtrellis.py`.
 
-1.  the model defined in `genlattice.py` does not cleanly correspond to
+1.  the model defined in `gentrellis.py` does not cleanly correspond to
     a Markov model, as the probability of emitting an event depends on the
     predecessor state, but by the Markov assumption it must only depend on the
     current state. This can be repaired by adjusting how the process is
@@ -274,7 +274,7 @@ use of column generation for airline crew scheduling.
 
 ### Performance
 
-1.  Around two-thirds of running time is inside `slowlattice`.
+1.  Around two-thirds of running time is inside `slowtrellis`.
     Replacing this with naive C or Cython code may give 250x speedup for this
     subroutine -- up to +200% speedup for whole program.
 

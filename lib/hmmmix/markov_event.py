@@ -2,7 +2,7 @@ import numpy
 import typing
 
 from . import base
-from .lattice import slowlattice
+from .trellis import slowtrellis
 
 
 class MarkovEventAuxiliarySolver(base.AuxiliarySolver):
@@ -28,7 +28,7 @@ class MarkovEventAuxiliarySolver(base.AuxiliarySolver):
 
             prizes_u = problem.prizes[:, u]
 
-            (objective, logprob, fancy_state_trajectory, obs_trajectory) = slowlattice.search_best_path(problem.times, prizes_u)
+            (objective, logprob, fancy_state_trajectory, obs_trajectory) = slowtrellis.search_best_path(problem.times, prizes_u)
 
             # Account for us not knowing which u to pick
             objective += logprob_prior_u
@@ -41,8 +41,8 @@ class MarkovEventAuxiliarySolver(base.AuxiliarySolver):
 
             # TODO it is defective to implement banning solutions like this -
             # a correct implementation needs to implement banned solutions
-            # as constraints in the modified Viterbi lattice problem. E.g.
-            # if the best 3 solutions are banned, the Viterbi lattice problem
+            # as constraints in the modified Viterbi trellis problem. E.g.
+            # if the best 3 solutions are banned, the Viterbi trellis problem
             # should spit out the 4th best.
             if candidate_description in self.banned_ids:
                 continue
