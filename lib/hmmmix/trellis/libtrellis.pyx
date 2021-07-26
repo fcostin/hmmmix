@@ -1,3 +1,4 @@
+import cython
 import numpy
 
 ctypedef long index_t
@@ -19,7 +20,7 @@ def _kernel(index_t[:] times, \
     """
 
     cdef index_t t, s, s_prime, T, S, ti, sj, j
-    cdef dtype_t v_prime
+    cdef dtype_t v_prime, logprob_prime
 
     # v: shape T * S dense array of float64 objective values, init to -inf
     # p: shape T * S dense array of float64 logprob values, init to -inf
@@ -30,6 +31,15 @@ def _kernel(index_t[:] times, \
 
     T = len(times)
     S = len(states)
+
+    # Sanity check indices to give more confidence before we turn off
+    # bounds checking.
+    for ti in range(T):
+        assert 0 <= times[ti] and times[ti] < T
+
+    for si in range(S):
+        assert 0 <= states[si] and states[si] < T
+
 
     cdef dtype_t[:, :] v = numpy.empty(shape=(T, S), dtype=numpy.float64)
     v[:, :] = -numpy.inf
@@ -58,19 +68,23 @@ def _kernel(index_t[:] times, \
 
     # FIXME will not correctly handle prizes on last timestep.
     # Handle by padding with extra terminator time?
-    for ti in range(T-1):
-        t = times[ti]
-        for sj in range(S):
-            s = states[sj]
-            for j in range(start_indices[s], end_indices[s]):
-                s_prime = succs[j]
-                v_prime = v[t, s] + weights[j] + delta_es[j] * prizes[t]
-                logprob_prime = logprob[t, s] + weights[j]
-                if v_prime > v[t+1, s_prime]:
-                    v[t+1, s_prime] = v_prime
-                    logprob[t+1, s_prime] = logprob_prime
-                    parent_s[t+1, s_prime] = s
-                    parent_obs[t+1, s_prime] = delta_es[j]
+
+    with nogil:
+        with cython.wraparound(False):
+            with cython.boundscheck(False):
+                for ti in range(T-1):
+                    t = times[ti]
+                    for sj in range(S):
+                        s = states[sj]
+                        for j in range(start_indices[s], end_indices[s]):
+                            s_prime = succs[j]
+                            v_prime = v[t, s] + weights[j] + delta_es[j] * prizes[t]
+                            logprob_prime = logprob[t, s] + weights[j]
+                            if v_prime > v[t+1, s_prime]:
+                                v[t+1, s_prime] = v_prime
+                                logprob[t+1, s_prime] = logprob_prime
+                                parent_s[t+1, s_prime] = s
+                                parent_obs[t+1, s_prime] = delta_es[j]
 
     # Phase 3. Recover a value-maximising path (may be nonunique)
     state_trajectory = []
