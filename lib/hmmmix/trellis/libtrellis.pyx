@@ -5,20 +5,20 @@ ctypedef double dtype_t
 
 def _kernel(index_t[:] times, \
             index_t[:] states, \
-            outgoing_edges, \
+            packed_edges, \
             dtype_t[:] prizes, \
             dtype_t[:] logprob_prior):
     """
     :param times: array of integer time indices [0, ..., T-1] shape (T,)
     :param states: array of state indices [s_1, ..., s_K] shape (S,)
-    :param outgoing_edges: dict of state index to list of edge tuples. rework.
+    :param packed_edges: see _PACKED_EDGES
     :param prizes: array of float prizes. shape (T, )
     :param logprob_prior: array of float value. shape (S. )
 
     returns (objective_star, logprob_star, state_trajectory, obs_trajectory)
     """
 
-    cdef index_t t, s, s_prime, T, S, ti, sj
+    cdef index_t t, s, s_prime, T, S, ti, sj, j
     cdef dtype_t v_prime
 
     # v: shape T * S dense array of float64 objective values, init to -inf
@@ -45,6 +45,15 @@ def _kernel(index_t[:] times, \
         v[0, s] = logprob_prior[s]
         logprob[0, s] = logprob_prior[s]
 
+    # FIXME it'd arguably make better use of cache to pack the three edge
+    # attributes into a single array of structs
+    (_start_indices, _end_indices, _succs, _weights, _delta_es) = packed_edges
+    cdef index_t[:] start_indices = _start_indices
+    cdef index_t[:] end_indices = _end_indices
+    cdef index_t[:] succs = _succs
+    cdef dtype_t[:] weights = _weights
+    cdef index_t[:] delta_es = _delta_es
+
     # Phase 2. Bottom-up DP.
 
     # FIXME will not correctly handle prizes on last timestep.
@@ -53,15 +62,15 @@ def _kernel(index_t[:] times, \
         t = times[ti]
         for sj in range(S):
             s = states[sj]
-            for edge in outgoing_edges[s]:
-                s_prime = edge.succ
-                v_prime = v[t, s] + edge.weight + edge.delta_e * prizes[t]
-                logprob_prime = logprob[t, s] + edge.weight
+            for j in range(start_indices[s], end_indices[s]):
+                s_prime = succs[j]
+                v_prime = v[t, s] + weights[j] + delta_es[j] * prizes[t]
+                logprob_prime = logprob[t, s] + weights[j]
                 if v_prime > v[t+1, s_prime]:
                     v[t+1, s_prime] = v_prime
                     logprob[t+1, s_prime] = logprob_prime
                     parent_s[t+1, s_prime] = s
-                    parent_obs[t+1, s_prime] = edge.delta_e
+                    parent_obs[t+1, s_prime] = delta_es[j]
 
     # Phase 3. Recover a value-maximising path (may be nonunique)
     state_trajectory = []
