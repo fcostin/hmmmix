@@ -18,7 +18,7 @@ def _kernel(index_t[:] times, \
     returns (objective_star, logprob_star, state_trajectory, obs_trajectory)
     """
 
-    cdef index_t t, s, s_prime, T, S
+    cdef index_t t, s, s_prime, T, S, ti, sj
     cdef dtype_t v_prime
 
     # v: shape T * S dense array of float64 objective values, init to -inf
@@ -49,8 +49,10 @@ def _kernel(index_t[:] times, \
 
     # FIXME will not correctly handle prizes on last timestep.
     # Handle by padding with extra terminator time?
-    for t in times[:-1]:
-        for s in states:
+    for ti in range(T-1):
+        t = times[ti]
+        for sj in range(S):
+            s = states[sj]
             for edge in outgoing_edges[s]:
                 s_prime = edge.succ
                 v_prime = v[t, s] + edge.weight + edge.delta_e * prizes[t]
