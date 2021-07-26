@@ -1,6 +1,7 @@
 import numpy
 
 from . import gentrellis
+from . import libtrellis
 
 _STATE_TO_INDEX = {s:i for i, s in enumerate(gentrellis.STATES)}
 _STATES = numpy.asarray([_STATE_TO_INDEX[s] for s in gentrellis.STATES], dtype=int)
@@ -65,20 +66,12 @@ def _search_best_path(times, states, logprob_prior, outgoing_edges, prizes):
         logprob[0, s] = logprob_prior[s]
 
     # bottom up dynamic programming solve for value maximising paths.
+    if True:
+        kernel = libtrellis._kernel
+    else:
+        kernel = _kernel
 
-    # FIXME will not correctly handle prizes on last timestep.
-    # Handle by padding with extra terminator time?
-    for t in times[:-1]:
-        for s in states:
-            for edge in outgoing_edges[s]:
-                s_prime = edge.succ
-                v_prime = v[t, s] + edge.weight + edge.delta_e * prizes[t]
-                logprob_prime = logprob[t, s] + edge.weight
-                if v_prime > v[t+1, s_prime]:
-                    v[t+1, s_prime] = v_prime
-                    logprob[t+1, s_prime] = logprob_prime
-                    parent_s[t+1, s_prime] = s
-                    parent_obs[t+1, s_prime] = edge.delta_e
+    kernel(times, states, outgoing_edges, prizes, v, logprob, parent_s, parent_obs)
 
     # recover a value-maximising path (may be nonunique)
     state_trajectory = []
@@ -107,3 +100,33 @@ def _search_best_path(times, states, logprob_prior, outgoing_edges, prizes):
     obs_trajectory = obs_trajectory[1:] + [0] # FIXME aiee
 
     return (objective_star, logprob_star, state_trajectory, obs_trajectory)
+
+
+def _kernel(times, states, outgoing_edges, prizes, v, logprob, parent_s, parent_obs):
+    """
+    :param times: array of integer time indices [0, ..., T-1] shape (T,)
+    :param states: array of state indices [s_1, ..., s_K] shape (S,)
+    :param outgoing_edges: dict of state index to list of edge tuples. rework.
+    :param prizes: array of float prizes. shape (T, )
+    :param v: array of float value. shape (T, S)
+    :param logprob: array of float logprob. shape (T, S)
+    :param parent_s: array of state indices. shape (T, S)
+    :param parent_obs: array of integer event counts. shape (T, S)
+
+    returns None
+
+    v, logprob, parent_s and parent_obs are mutated in place.
+    """
+    # FIXME will not correctly handle prizes on last timestep.
+    # Handle by padding with extra terminator time?
+    for t in times[:-1]:
+        for s in states:
+            for edge in outgoing_edges[s]:
+                s_prime = edge.succ
+                v_prime = v[t, s] + edge.weight + edge.delta_e * prizes[t]
+                logprob_prime = logprob[t, s] + edge.weight
+                if v_prime > v[t+1, s_prime]:
+                    v[t+1, s_prime] = v_prime
+                    logprob[t+1, s_prime] = logprob_prime
+                    parent_s[t+1, s_prime] = s
+                    parent_obs[t+1, s_prime] = edge.delta_e
