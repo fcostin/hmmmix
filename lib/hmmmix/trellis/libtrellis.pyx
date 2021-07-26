@@ -38,7 +38,7 @@ def _kernel(index_t[:] times, \
         assert 0 <= times[ti] and times[ti] < T
 
     for si in range(S):
-        assert 0 <= states[si] and states[si] < T
+        assert 0 <= states[si] and states[si] < S
 
 
     cdef dtype_t[:, :] v = numpy.empty(shape=(T, S), dtype=numpy.float64)
