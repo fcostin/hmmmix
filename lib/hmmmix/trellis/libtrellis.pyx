@@ -23,6 +23,10 @@ def _kernel(index_t[:] times, \
 
     v, logprob, parent_s and parent_obs are mutated in place.
     """
+
+    cdef index_t t, s, s_prime
+    cdef dtype_t v_prime
+
     # FIXME will not correctly handle prizes on last timestep.
     # Handle by padding with extra terminator time?
     for t in times[:-1]:
