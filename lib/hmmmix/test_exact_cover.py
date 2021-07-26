@@ -15,7 +15,7 @@ def solver_factory(request):
     if backend == "primal":
         return lambda: exact_cover_solver_primal.PrimalCoverSolver()
     if backend == "dual_scipy":
-        return lambda: exact_cover_solver_dual_scipy.DualCoverSolver(y_lower_bound=-100.0)
+        return lambda: exact_cover_solver_dual_scipy.DualCoverSolver()
     raise KeyError(backend)
 
 

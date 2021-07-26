@@ -10,8 +10,8 @@ import typing
 
 class DualCoverSolver(base.ExactCoverResourcePricingSolver):
 
-    def __init__(self, y_lower_bound=None):
-        self._y_lower_bound = y_lower_bound
+    def __init__(self):
+        pass
 
     def solve(self, problem: base.ExactCoverResourcePricingProblem) -> typing.Optional[base.ExactCoverResourcePricingSolution]:
         """
@@ -74,16 +74,7 @@ class DualCoverSolver(base.ExactCoverResourcePricingSolver):
         for j, tu in enumerate(TU):
             j_by_tu[tu] = j
             obj_coeffs[j] = e_hat[tu]
-            if self._y_lower_bound is None:
-                bounds[j] = (None, None) # each y is unbounded in dual problem
-            else:
-                # ad-hoc: in the dual problem each y is genuinely unbounded
-                # below. The objective function is still bounded. Solvers
-                # seem to get wildly upset by the set of optimal solutions
-                # being unbounded. So we can just set a lower bound on it. If
-                # it is negative with sufficiently large absolute value it
-                # can't hurt, right?
-                bounds[j] = (self._y_lower_bound, None)
+            bounds[j] = (None, None) # each y is unbounded in dual problem
         for j, i in enumerate(ii):
             obj_coeffs[n_tu + j] = ub_by_i.get(i, 1)
             bounds[n_tu + j] = (0.0, None) # each w is nonnegative
