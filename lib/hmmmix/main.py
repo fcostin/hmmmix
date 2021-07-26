@@ -61,7 +61,7 @@ def main():
             except KeyboardInterrupt:
                 pass
         ps = pstats.Stats(p).sort_stats(pstats.SortKey.CUMULATIVE)
-        ps.print_stats(50)
+        ps.print_stats(75)
     else:
         do_solve(args)
 
