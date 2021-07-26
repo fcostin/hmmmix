@@ -3,3 +3,4 @@ Cython==0.29.23
 mip==1.13.0
 numpy==1.21.0
 pycparser==2.20
+scipy==1.7.0

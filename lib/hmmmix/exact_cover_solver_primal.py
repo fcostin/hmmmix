@@ -7,8 +7,8 @@ import typing
 
 class PrimalExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver):
 
-    def __init__(self, regularisation_lambda=0.0):
-        self.regularisation_lambda = regularisation_lambda
+    def __init__(self):
+        pass
 
     def solve(self, problem: base.ExactCoverResourcePricingProblem) -> typing.Optional[base.ExactCoverResourcePricingSolution]:
         T = problem.times
@@ -36,21 +36,15 @@ class PrimalExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver
 
         # Constraints -- forall t forall u balance supply and demand:
 
-        e_hat_l1norm = numpy.sum(numpy.abs(problem.e_hat))
-        dual_lambda = self.regularisation_lambda * 0.5 * e_hat_l1norm
-
-        print('|e^| = %g' % (e_hat_l1norm,))
-        print('using dual lambda = %g' % (dual_lambda,))
-
         con_balance_ub_by_t_u = {}
         con_balance_lb_by_t_u = {}
         for t in T:
             for u in U:
                 rhs = problem.e_hat[(t, u)]
                 ub = mip.xsum(z_by_i[i].e[(t, u)] * x_by_i[i] for i in
-                              i_with_support_t_u[(t, u)]) <= rhs + dual_lambda
+                              i_with_support_t_u[(t, u)]) <= rhs
                 lb = mip.xsum(z_by_i[i].e[(t, u)] * x_by_i[i] for i in
-                              i_with_support_t_u[(t, u)]) >= rhs - dual_lambda
+                              i_with_support_t_u[(t, u)]) >= rhs
                 con_balance_ub_by_t_u[(t, u)] = m.add_constr(ub)
                 con_balance_lb_by_t_u[(t, u)] = m.add_constr(lb)
 
@@ -61,22 +55,36 @@ class PrimalExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver
 
         # Recover dual variable value for each constraint
         prizes = numpy.zeros(shape=(len(T), len(U)), dtype=numpy.float64)
-        # Intuition: I believe when the values of the dual variables are unstable
-        # (e.g. very large or even nan) this indicates that the dual problem has
-        # too many variables and too few constraints, so the dual solution is
-        # not unique and the value of many dual variables y >= 0 is not determined,
-        # apart from needing to satisfy A^T y >= c while minimising b^T y .  One way
-        # to improve the stability of the dual problem could be to add additional
-        # variables (columns) to the restricted master problem -- this would add
-        # additional constraints to the dual problem.  Another ad-hoc way to perhaps
-        # improve stability is to add a regularisation term to the dual problem
-        # objective function. E.g. instead of minimising b^T y we could instead
-        # minimising b^T y + lambda R(y) where lambda > 0 is a constant and R(y) is
-        # a suitable regularisation penalty. Since we are doing linear programming
-        # a natural (read: easy) choice of R(y) would be the L_1 norm of y. Since
-        # y >= 0 this is equivalent to adding a + lambda 1^T y term to the dual
-        # objective function. Equivalently, back in the primal problem, this is
-        # equivalent to replacing the constraints A x <= b with A x <= b + lambda 1 .
+
+        # BEWARE the recovery of a dual solution obtained through the simplex
+        # method in order to define our "prizes" may not be very useful. Adding
+        # a new decision variable (column) with negative reduced cost as
+        # defined by this dual solution may not increase the objective of the
+        # new restricted master problem. A symptom that this is happening is
+        # that the auxiliary solver finds a new variable with substantially
+        # negative reduced cost, but when it is added to the restricted master
+        # problem, it makes no improvement to the objective function.
+        #
+        # Crude intuition: dual solution from simplex algorithm tells us which
+        # direction to take a step in, but not how far we can step. So if we
+        # merely search for the steepest direction to step in without
+        # considering how far we can step, we may find a very attractive
+        # direction to step in turns out to hit a wall with step size zero.
+        #
+        # See section "Subtleties when using dual solution to select new
+        # decision variables". We could probably do a better job of searching
+        # for new decision variables to add if we knew the allowable ranges
+        # corresponding to each of our dual variables, with respect to the
+        # simplex solver's internal state. But alas, we do not.
+        #
+        # Completely different algorithms for solving LPs such as interior
+        # point methods or subgradient methods may produce dual solutions that
+        # can
+        #
+        # A good reference is
+        # Jansen, de Jong, Roos, Terlaky (1997)
+        # "Sensitivity analysis in linear programming: just be careful!"
+        #
         for t in T:
             for u in U:
                 # FIXME this nan nonsense may be specific to trying to solve a dual

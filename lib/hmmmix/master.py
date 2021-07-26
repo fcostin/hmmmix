@@ -10,7 +10,7 @@ from . import markov_event
 
 from . import exact_cover_base
 from . import exact_cover_solver_primal
-from . import exact_cover_solver_dual
+from . import exact_cover_solver_dual_scipy
 
 
 def make_soln_id(solver_id, soln_id):
@@ -91,13 +91,12 @@ class RelaxedMasterSolver(base.MasterSolver):
         while True:
             print('iter...')
 
-            use_primal = True
+            use_primal = False
             if use_primal:
                 solver = exact_cover_solver_primal.PrimalExactCoverResourcePricingSolver(
-                    regularisation_lambda=0.0,
                 )
             else:
-                solver = exact_cover_solver_dual.DualExactCoverResourcePricingSolver()
+                solver = exact_cover_solver_dual_scipy.ScipyDualExactCoverResourcePricingSolver()
 
             cover_problem = exact_cover_base.ExactCoverResourcePricingProblem(
                 times=problem.times,
