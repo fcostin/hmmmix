@@ -11,6 +11,10 @@ demo-profile:	lib/hmmmix/main.py data/transactions.npy $(LIBLATTICE)
 	python -m lib.hmmmix.main --profile $(word 2,$^)
 .PHONY:	demo-profile
 
+test:
+	python -m pytest -v .
+.PHONY: test
+
 
 
 clean:

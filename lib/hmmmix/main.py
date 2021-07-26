@@ -19,6 +19,7 @@ def do_solve(args):
 
     # mip library goes completely bananas if given unsigned integers
     e_hat = numpy.asarray(e_hat, dtype=numpy.int64)
+    e_hat = e_hat[-40:, -1:]
 
     n_time, n_type = e_hat.shape
 
@@ -26,6 +27,9 @@ def do_solve(args):
 
     T = numpy.arange(n_time)
     U = numpy.arange(n_type)
+
+    print('n_time: %d' % (n_time, ))
+    print('n_type: %d' % (n_type, ))
 
     s = master.RelaxedMasterSolver()
 

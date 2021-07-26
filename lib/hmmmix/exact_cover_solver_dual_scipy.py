@@ -8,7 +8,10 @@ import numpy
 import typing
 
 
-class ScipyDualExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver):
+class DualCoverSolver(base.ExactCoverResourcePricingSolver):
+
+    def __init__(self, y_lower_bound=None):
+        self._y_lower_bound = y_lower_bound
 
     def solve(self, problem: base.ExactCoverResourcePricingProblem) -> typing.Optional[base.ExactCoverResourcePricingSolution]:
         """
@@ -51,9 +54,6 @@ class ScipyDualExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSol
         i_with_support_t_u = problem.i_with_support_t_u
         e_hat = problem.e_hat
 
-        ii = list(sorted(z_by_i.keys()))
-
-
         # we need inverse of this to lookup {tu} given i.
         tu_with_support_by_i = collections.defaultdict(set)
         for tu, ii in i_with_support_t_u.items():
@@ -63,6 +63,7 @@ class ScipyDualExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSol
         TU = list(itertools.product(T, U))
 
         n_tu = len(TU)
+        ii = list(sorted(z_by_i.keys()))
         n_z = len(ii)
 
         n = n_tu + n_z
@@ -73,12 +74,22 @@ class ScipyDualExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSol
         for j, tu in enumerate(TU):
             j_by_tu[tu] = j
             obj_coeffs[j] = e_hat[tu]
-            bounds[j] = (None, None) # each y is unbounded
+            if self._y_lower_bound is None:
+                bounds[j] = (None, None) # each y is unbounded in dual problem
+            else:
+                # ad-hoc: in the dual problem each y is genuinely unbounded
+                # below. The objective function is still bounded. Solvers
+                # seem to get wildly upset by the set of optimal solutions
+                # being unbounded. So we can just set a lower bound on it. If
+                # it is negative with sufficiently large absolute value it
+                # can't hurt, right?
+                bounds[j] = (self._y_lower_bound, None)
         for j, i in enumerate(ii):
             obj_coeffs[n_tu + j] = ub_by_i.get(i, 1)
             bounds[n_tu + j] = (0.0, None) # each w is nonnegative
 
         assert numpy.all(numpy.isfinite(obj_coeffs))
+        assert numpy.all(obj_coeffs >= 0.0)
 
 
         # generate constraints
@@ -145,20 +156,21 @@ class ScipyDualExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSol
         for k, i in enumerate(ii):
             b[k] = z_by_i[i].cost
 
-
         # note that scipy wants upper bounds for inequality constraints
 
         # We force the use of interior point method in the hope of recovering
         # a solution that is more useful for defining "prizes" for the auxiliary
         # problem.
+
         res = linprog(
             c=obj_coeffs,
             A_ub=a_matrix,
             b_ub=b,
             bounds=bounds,
-            # method='highs-ipm',
+            method='highs-ipm',
+            # method='interior-point',
             options={
-                'presolve': True,
+                'presolve': False,
             }
         )
 
@@ -174,10 +186,10 @@ class ScipyDualExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSol
 
         # Recover solution for y variables in order to define prizes
         prizes = numpy.zeros(shape=(len(T), len(U)), dtype=numpy.float64)
-        y = res['fun']
-        for j, tu in enumerate(TU):
-            prizes[tu] = y[j]
+        y = res['x']
 
+        for j, tu in enumerate(TU):
+            prizes[tu] = -1.0 * y[j]
 
         return base.ExactCoverResourcePricingSolution(
             objective=objective_value,

@@ -5,7 +5,7 @@ import numpy
 import typing
 
 
-class PrimalExactCoverResourcePricingSolver(base.ExactCoverResourcePricingSolver):
+class PrimalCoverSolver(base.ExactCoverResourcePricingSolver):
 
     def __init__(self):
         pass

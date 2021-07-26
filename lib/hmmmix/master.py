@@ -17,10 +17,7 @@ def make_soln_id(solver_id, soln_id):
     return '%s;%s' % (solver_id, soln_id)
 
 
-def bootstrap_initial_basis(problem: base.MasterProblem):
-
-    aux_solver = once_off_event.OnceOffEventAuxiliarySolver()
-
+def bootstrap_initial_basis(aux_solver: once_off_event.OnceOffEventAuxiliarySolver, problem: base.MasterProblem):
     # This needs to be positive and have larger magnitude than
     # the log prob of some feasible solution to our (t, u) once-off event
     mega_desperate_prize = 1.0e9
@@ -76,7 +73,9 @@ class RelaxedMasterSolver(base.MasterSolver):
 
         # Bootstrap an initial feasible solution
         print('bootstrapping initial feasible soln')
-        z_by_i, ub_by_i = bootstrap_initial_basis(problem)
+        z_by_i, ub_by_i = bootstrap_initial_basis(aux_solvers_by_id['once-off'], problem)
+        for z in z_by_i.values():
+            aux_solvers_by_id['once-off'].exclude(z)
         print('ok')
 
         # Iteratively solve relaxed restricted master problem
@@ -93,10 +92,10 @@ class RelaxedMasterSolver(base.MasterSolver):
 
             use_primal = False
             if use_primal:
-                solver = exact_cover_solver_primal.PrimalExactCoverResourcePricingSolver(
+                solver = exact_cover_solver_primal.PrimalCoverSolver(
                 )
             else:
-                solver = exact_cover_solver_dual_scipy.ScipyDualExactCoverResourcePricingSolver()
+                solver = exact_cover_solver_dual_scipy.DualCoverSolver()
 
             cover_problem = exact_cover_base.ExactCoverResourcePricingProblem(
                 times=problem.times,
@@ -109,7 +108,7 @@ class RelaxedMasterSolver(base.MasterSolver):
 
             cover_solution = solver.solve(cover_problem)
             if cover_solution is None:
-                print('error - restricted relaxed exact cover problem infeasible. add more candidate sets!')
+                print('error - restricted relaxed exact cover problem infeasible. add more candidate sets!?')
                 return None
 
             obj = cover_solution.objective
