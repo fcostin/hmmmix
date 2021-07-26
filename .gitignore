@@ -1,8 +1,9 @@
 /venv
 /build
 *.npy
-/lib/hmmmix/lattice/liblattice.c
-/lib/hmmmix/lattice/liblattice.*.so
+/lib/hmmmix/trellis/libtrellis.c
+/lib/hmmmix/trellis/libtrellis.*.so
+/lib/hmmmix/trellis/libtrellis.html
 .~lock*
 /.idea
 __pycache__
