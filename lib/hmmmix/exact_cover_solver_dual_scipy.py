@@ -93,7 +93,7 @@ class DualCoverSolver(base.ExactCoverResourcePricingSolver):
         for k, i in enumerate(ii):
             # lhs:
             #  - mip.xsum( * y_by_tu[tu] for tu in tus)
-            #  - ub_by_i[i] * w_by_i[i]
+            #  - ub_by_i[i]
             #
             # rhs:
             #  zi.cost
@@ -119,8 +119,9 @@ class DualCoverSolver(base.ExactCoverResourcePricingSolver):
                 data[l] = -1.0 * zi.e[tu]
 
             # Term corresponding to upper bound on weight of zi
+            # Note this is NOT weighted by the upper bound.
             col_indices[n_entries-1] = n_tu + k
-            data[n_entries-1] = -1.0 * ub_by_i.get(i, 1.0)
+            data[n_entries-1] = -1.0
 
             con_data.append(data)
             con_col_indices.append(col_indices)

@@ -194,3 +194,58 @@ def test_exact_cover_small_problem_feasible_basis(solver_factory, n_time, n_type
     result = s.solve(problem)
     assert result is not None
     assert numpy.allclose(expected_objective, result.objective)
+
+
+@pytest.fixture(scope="module", params=[2])
+def lump(request):
+    return request.param
+
+
+def test_exact_cover_small_lumpy_problem_feasible_basis(solver_factory, lump, n_time, n_type):
+    """
+    same as test_exact_cover_small_problem_feasible_basis except:
+    *   we observe lump>1 counts at t=0, u=0, where lump is an integer.
+    *   the upper bound for the singleton basis set at t=0, u=0 raised from
+        1 to lump > 1 to ensure a feasible solution exists.
+    """
+    T = n_time
+    U = n_type
+    times = numpy.arange(T)
+    event_types = numpy.arange(U)
+
+    # Two observations to explain away
+    e_hat = numpy.zeros(shape=(T, U), dtype=numpy.float64)
+    e_hat[0, 0] = 1.0*lump
+    e_hat[T-1, U-1] = 1.0
+
+    z_by_i = {}
+    ub_by_i = {}
+    u_with_support_t_u = collections.defaultdict(set)
+    for t in times:
+        for u in event_types:
+            i = 'once-off;%d;%d' % (t, u)
+            e = numpy.zeros(shape=(T, U), dtype=numpy.float64)
+            e[t, u] = 1.0
+            zi = base.CandidateSet(cost=numpy.log(T)+numpy.log(U), e=e)
+            z_by_i[i] = zi
+            if t == 0 and u == 0:
+                ub_by_i[i] = 1.0 * lump
+            else:
+                ub_by_i[i] = 1.0
+            u_with_support_t_u[(t, u)].add(i)
+
+    problem = base.ExactCoverResourcePricingProblem(
+        times=times,
+        event_types=event_types,
+        e_hat=e_hat,
+        z_by_i=z_by_i,
+        ub_by_i=ub_by_i,
+        i_with_support_t_u=u_with_support_t_u,
+    )
+
+    expected_objective = -1.0 * numpy.sum(e_hat) * (numpy.log(T) + numpy.log(U))
+
+    s = solver_factory()
+    result = s.solve(problem)
+    assert result is not None
+    assert numpy.allclose(expected_objective, result.objective)
