@@ -148,6 +148,7 @@ It is unclear what the best way to fix this is. Some ideas:
     
 -   abandon simplex, investigate if column generation can be implemented atop
     an interior point solver.
+    -   scipy integrates a couple of interior point solvers.
     
 -   abandon linear programming, reformulate the problem so the hard constraint
     is soft. Would this lead to a quadratic program? Can column generation or
@@ -257,6 +258,16 @@ constraint that `G(p')=1`.
     modelled: split states that may emit into states "will emit" & "will not
     emit"
 
+##### Getting multiple new columns out of each auxilary solve
+
+Instead of extracting a single max-value-path from the modified Viterbi
+algorithm, it is possible to recover the top k highest value paths. This is
+more work, and causes larger restricted master LPs to solve, but may speedup
+the overall procedure by reducing the number of column generation iterations.
+Some industrial applications of column generation use this trick.
+Mentioned in [Per Sjögren's masters thesis][airline-scheduling] on industrial
+use of column generation for airline crew scheduling.
+
 
 ### Software Gardening
 
@@ -348,3 +359,4 @@ constraint that `G(p')=1`.
 [dd-admm-2011]: https://www.cs.cmu.edu/~afm/Home_files/icml2011_main.pdf
 [sensitivity-lp-be-careful]: https://scholar.google.com/scholar?cluster=13440092608059508637&hl=en&as_sdt=0,5
 [mosek-sensitivity]: https://docs.mosek.com/9.2/pythonapi/sensitivity-shared.html
+[airline-scheduling]: http://www.math.chalmers.se/Math/Research/Optimization/reports/masters/PerSjogren-final.pdf
