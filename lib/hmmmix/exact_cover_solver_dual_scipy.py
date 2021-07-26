@@ -167,10 +167,12 @@ class DualCoverSolver(base.ExactCoverResourcePricingSolver):
             A_ub=a_matrix,
             b_ub=b,
             bounds=bounds,
-            method='highs-ipm',
-            # method='interior-point',
+            # method='highs-ipm', # FIXME highs solvers output unhelpful solutions.
+            method='interior-point',
             options={
-                'presolve': False,
+                'disp': True,
+                'presolve': True,
+                'tol': 1.0e-14,
             }
         )
 
