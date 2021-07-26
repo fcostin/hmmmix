@@ -258,7 +258,7 @@ constraint that `G(p')=1`.
     modelled: split states that may emit into states "will emit" & "will not
     emit"
 
-##### Getting multiple new columns out of each auxilary solve
+##### Getting multiple new columns out of each auxiliary solve
 
 Instead of extracting a single max-value-path from the modified Viterbi
 algorithm, it is possible to recover the top k highest value paths. This is
@@ -268,20 +268,70 @@ Some industrial applications of column generation use this trick.
 Mentioned in [Per Sjögren's masters thesis][airline-scheduling] on industrial
 use of column generation for airline crew scheduling.
 
+```
+shortest path   O(E + V log V)              general graph   Dijkstra
+shortest path   O(E + V)                    trellis-DAG     trellis
+
+K shortest      O(E + K V log V)            general graph?  modified Dijkstra
+K shortest      (E + V log V + K + K V)     general graph?  Eppstein
+K shortest      O(E + V log V + K + K V)?   general graph?  Hershberger et al.
+```
+
+Current state
+
+```
+suppose each trellis costs A
+suppose each LP costs B
+suppose need N columns to be generated
+suppose gen 1 column per iter
+need N iters
+
+total cost: N * (A + B)
+```
+
+Proposed state with K shortest path generation in auxiliary problem.
+
+Bad working assumption: columns generated in batch will be as "effective" as
+those generated one at a time between successive LP solves of the restricted
+master problem. This assumption will become increasingly wrong as K becomes
+larger vs resolving LP and getting a better estimate of what the true
+unrestricted LP duals are. Unsure how to quantify this.
+
+```
+suppose generate K columns per iter
+need N/K iters
+each trellis costs K*A now
+total cost: (N/K) * (K*A + B) = N*A + N*B/K
+```
+
+Without estimate of drop in effectiveness of columns as K increases, unclear
+how to choose K. Can do it empirically.
+
+Current cost measurements of A and B (from profiling):
+
+```
+phase                           time (s)
+
+- dual exact cover solve            134.0  # cost "B"
+- - scipy.optimize.linprog          117.0
+- - - scipy.optimize._linprog_ip    107.0
+- - - - scipy.sparse.linalg.dsolve   48.0
+- trellis search best path            2.2  # cost "A"
+- - libtrellis _kernel                1.0
+- - <listcomp to render id string>    1.2 # ha!
+total                               140.0
+```
 
 ### Software Gardening
 
 
 ### Performance
 
-1.  Around two-thirds of running time is inside `slowtrellis`.
-    Replacing this with naive C or Cython code may give 250x speedup for this
-    subroutine -- up to +200% speedup for whole program.
-
-1.  Nearly one-third running time is building the master problem through python
-    mip API. This is much slower than the actual linear solve through CBC.
-    Rewriting this setup with C or Cython may give 100x speedup for this
-    subroutine -- up to +50% speedup for whole program.
+1.  (primal python+mip solver only) Nearly one-third running time is building
+    the master problem through python mip API. This is much slower than the
+    actual linear solve through CBC. Rewriting this setup with C or Cython or
+    using scipy.optimize.linprog may give 100x speedup for this subroutine --
+    up to +50% speedup for whole program.
 
 1.  Master problem state is discarded and rebuilt from scratch between
     successive iterations. Yet successive problems will be very similar,
@@ -301,11 +351,6 @@ use of column generation for airline crew scheduling.
         derivation in the docs.
     1.  Standardise notation on what is used in the docs derivation.
         Stop using hats for things that are not estimates.
-
-1.  `lib/hmmix/exact_cover_solver_dual.py` doesn't work.
-    Fix it or delete it. Perhaps it doesn't work as the dual
-    solution has many dual variables where the optimal value is
-    attained (?).
 
 1.  Refactor `lib/hmmmix/master.py` into main app and master problem library.
 
