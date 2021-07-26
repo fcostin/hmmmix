@@ -25,4 +25,5 @@ $(LIBTRELLIS): setup.py lib/hmmmix/trellis/libtrellis.pyx
 	python setup.py build_ext --inplace
 
 data/transactions.npy:	tools/preprocess_transactions.py data/demo_transaction_data_2019_2021.csv
-	python $< --count --descr=jah --out $@ $(word 2,$^)
+	# python $< --count --descr=jah --out $@ $(word 2,$^)
+	python $< --count --out $@ $(word 2,$^)
