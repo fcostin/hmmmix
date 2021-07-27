@@ -1,6 +1,7 @@
 /venv
 /build
 *.npy
+*.pyc
 /lib/hmmmix/trellis/libtrellis.c
 /lib/hmmmix/trellis/libtrellis.*.so
 /lib/hmmmix/trellis/libtrellis.html
