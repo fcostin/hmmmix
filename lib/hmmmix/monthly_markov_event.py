@@ -1,3 +1,4 @@
+import collections
 import numpy
 
 from .model import monthly_markov as gentrellis
@@ -9,27 +10,37 @@ def make_hmm():
     state_to_index = {s: i for i, s in enumerate(gentrellis.STATES)}
     states = numpy.asarray([state_to_index[s] for s in gentrellis.STATES], dtype=int)
 
-    def _encode_edge(edge):
-        return trellis.Edge(
-            succ=state_to_index[edge.succ],
-            weight=edge.weight,
-            delta_e=edge.delta_e,
-        )
+    weighted_edges_by_state_index = collections.defaultdict(list)
+    weighted_obs_by_state_index = collections.defaultdict(list)
 
-    outgoing_edges = {state_to_index[s]: [_encode_edge(edge) for edge in
-                                          gentrellis.OUTGOING_EDGES_BY_STATE[s]] for s
-                      in gentrellis.STATES}
+    # Jank: convert from old monthly_markov aka gentrellis encoding.
+    for s in gentrellis.STATES:
+        s_i = state_to_index[s]
+        for e in gentrellis.OUTGOING_EDGES_BY_STATE[s]:
+            weighted_edge = trellis.WeightedEdge(
+                succ=state_to_index[e.succ],
+                weight=e.weight,
+            )
+            weighted_edges_by_state_index[s_i].append(weighted_edge)
+        for wob in gentrellis.WEIGHTED_OBS_BY_STATE[s]:
+            weighted_obs = trellis.WeightedObservation(
+                delta_e=wob.delta_e,
+                weight=wob.weight,
+            )
+            weighted_obs_by_state_index[s_i].append(weighted_obs)
 
     logprob_prior = numpy.asarray(
         [gentrellis.LOGPROB_PRIOR_BY_STATE[s] for s in gentrellis.STATES],
         dtype=numpy.float64)
 
-    packed_edges = trellis.pack_edges(states, outgoing_edges)
+    packed_edges = trellis.pack_edges(states, weighted_edges_by_state_index)
+    packed_obs = trellis.pack_observations(states, weighted_obs_by_state_index)
 
     return trellis.HMM(
         state_by_statekey=state_to_index,
         states=states,
         packed_edges=packed_edges,
+        packed_observations=packed_obs,
         prior=logprob_prior,
     )
 
