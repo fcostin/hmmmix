@@ -246,17 +246,6 @@ problem, we would need to recover a path ending in one of the dynamic
 programming states at the final timestep with maximal value subject to the
 constraint that `G(p')=1`.
 
-##### Defects
-
-1.  fix trellis issue so that events at start and/or end times can be
-    properly modelled and recovered by `hmmmix/trellis/slowtrellis.py`.
-
-1.  the model defined in `gentrellis.py` does not cleanly correspond to
-    a Markov model, as the probability of emitting an event depends on the
-    predecessor state, but by the Markov assumption it must only depend on the
-    current state. This can be repaired by adjusting how the process is
-    modelled: split states that may emit into states "will emit" & "will not
-    emit"
 
 ##### Getting multiple new columns out of each auxiliary solve
 
