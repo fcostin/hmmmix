@@ -165,6 +165,7 @@ class DualCoverSolver(base.ExactCoverResourcePricingSolver):
                 'disp': True,
                 'presolve': True,
                 'tol': 1.0e-12,
+                'sparse': True,
             }
         )
 
