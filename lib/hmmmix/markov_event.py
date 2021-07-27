@@ -2,7 +2,6 @@ import numpy
 import typing
 
 from . import base
-from .trellis import slowtrellis
 
 
 class MarkovEventAuxiliarySolver(base.AuxiliarySolver):
@@ -12,6 +11,9 @@ class MarkovEventAuxiliarySolver(base.AuxiliarySolver):
 
     def exclude(self, solution: base.AuxiliarySolution):
         self.banned_ids.add(solution.id)
+
+    def _searchfunc(self, times, prizes_u):
+        raise NotImplementedError('subclass me')
 
     def solve(self, problem: base.AuxiliaryProblem) -> typing.Optional[base.AuxiliarySolution]:
         T = len(problem.times)
@@ -28,7 +30,7 @@ class MarkovEventAuxiliarySolver(base.AuxiliarySolver):
 
             prizes_u = problem.prizes[:, u]
 
-            (objective, logprob, fancy_state_trajectory, obs_trajectory) = slowtrellis.search_best_path(problem.times, prizes_u)
+            (objective, logprob, fancy_state_trajectory, obs_trajectory) = self._searchfunc(problem.times, prizes_u)
 
             # Account for us not knowing which u to pick
             objective += logprob_prior_u
