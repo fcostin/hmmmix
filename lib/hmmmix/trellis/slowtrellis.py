@@ -2,7 +2,7 @@ import numpy
 import numpy.typing
 
 
-def _slowkernel(times, states, packed_edges, prizes, logprob_prior):
+def _kernel(times, states, packed_edges, prizes, logprob_prior):
     """
     :param times: array of integer time indices [0, ..., T-1] shape (T,)
     :param states: array of state indices [s_1, ..., s_K] shape (S,)
