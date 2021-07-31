@@ -47,6 +47,42 @@ def bootstrap_initial_basis(aux_solver: once_off_event.OnceOffEventAuxiliarySolv
             soln_id = make_soln_id('once-off', aux_soln.id)
             z_by_i[soln_id] = aux_soln
             ub_by_i[soln_id] = max(problem.e_hat[(t, u)], 1)
+
+    # Also define solutions that allow *negative* observation counts.
+    # Consider this equivalent to a relaxation of the problem where we
+    # allow a single observed event to be (unsatisfyingly) explained as
+    # being caused by multiple causes that we expect to have produced two
+    # events.
+
+    for t in T:
+        for u in U:
+            prizes = numpy.zeros(shape=(len(T), len(U)), dtype=numpy.float64)
+            prizes[(t, u)] = mega_desperate_prize
+            aux_problem = base.AuxiliaryProblem(
+                times=T,
+                event_types=U,
+                prizes=prizes,
+            )
+            aux_soln = aux_solver.solve(aux_problem)
+            assert aux_soln is not None
+            assert base.is_auxiliary_solution_sane(aux_problem, aux_soln)
+            assert aux_soln.logprob < 0.0
+
+            e_negative = numpy.copy(aux_soln.e)
+            assert e_negative[(t, u)] == 1
+            e_negative[(t, u)] = -1
+
+            negative_aux_soln = base.AuxiliarySolution(
+                id=(aux_soln.id + ';negative'),
+                objective=0.0, # should not matter,
+                logprob=aux_soln.logprob - numpy.log(10000.0), # 10,000 times less likely than positive.
+                e=e_negative,
+            )
+
+            soln_id = make_soln_id('once-off', negative_aux_soln.id)
+            z_by_i[soln_id] = negative_aux_soln
+            ub_by_i[soln_id] = 1 # allow at most 1 negative observation count
+
     return z_by_i, ub_by_i
 
 
