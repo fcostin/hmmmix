@@ -115,7 +115,7 @@ where $\event i t := Z_{m(i), t}$. Note that unlike the definition of the more g
 
 Our goal is to infer a sparse factorial HMM, represented by $X$ and $M$, that explains a sequence of outputs $Y = (Y_t)_{t \in \TT}$. Given the framework of Bayesian inference, this amounts to computing the posterior distribution $P(X, M | Y=y)$ given observed data $y \in \events^{\TT}$. Computing this posterior distribution exactly is computationally challenging as it requires integrating over all the hidden states $\state i t$ and all outputs $\event i t$ for all $t \in \TT$ and all potential component models $i \in \II$. A less useful but more computationally feasible task is to instead compute a maximum a posteriori parameter estimate of the quad $(X, M, H, Z) = (X_i, m(i), \traj i, Z^{(i)})_{i \in \II}$ given the observed data $Y=y$. The elements of the quad define which component models participate in the factorial model ($X$), the type of each component from the family $\mm$ ($M$), the hidden states of each component ($H$), and the hidden outputs emitted by each component ($Z$).
 
-This form of MAP estimate becomes computationally tractable because the probabilities of each component HMM state $(X_i, Z_i)$ are conditionally independent from $(X_j, Z_j)$ $j \neq i$ given $Z$, allowing conditional probabilities to be calculated independently component by component once some value of $Z$ is fixed. This leads to a tractable decomposition of the problem. \todo{explain in terms of causal graph diagram, markov blankets, d separation}
+This form of MAP estimate is computationally tractable because the probabilities of each component HMM state $(X_i, Z_i)$ are conditionally independent from $(X_j, Z_j)$ $j \neq i$ given $Z$, allowing conditional probabilities to be calculated independently component by component once some value of $Z$ is fixed. This leads to a tractable decomposition. \todo{explain in terms of causal graph diagram, markov blankets, d separation}
 
 We demonstrate the decomposition more formally. Consider the following factorisation of the conditional probability of the variables $X, H, Z$ given the data $Y$:
 \begin{align}
@@ -129,9 +129,9 @@ P(X, M, H, Z \mid Y)
 \prod_{i \in \II} P\left(\eventseq i | M_i, \traj i\right)^{X_i} P(X, M, H) \label{map6}
 \end{align}
 \todo{fixup p a given b bar scaling}
-where \ref{map1} uses Bayes' theorem, \ref{map2} drops the factor $P(Y)$ as it is invariant during maximisation over $(X, H, Z)$, \ref{map3} applies the conditional independence of $Y$ from $H$ and $M$ given $X$ and $Z$, \ref{map5} is due to the conditional independence of the component observation models given $Z$, and \ref{map6} applies the definition of the aggregated observation $Y$ from the component hidden observations.
+where \ref{map1} uses Bayes' theorem, \ref{map2} drops the factor $P(Y)$ as it is invariant during maximisation over $(X, H, Z)$, \ref{map3} applies the conditional independence of $Y$ from $H$ and $M$ given $X$ and $Z$, \ref{map5} is due to the conditional independence of the component observation models given $Z$, and \ref{map6} applies the definition of the aggregated observation $Y$ from the component hidden outputs.
 
-To complete the decomposition of the conditional probability $P(X, M, H, Z \mid Y)$ in terms the distributions defined by the family of component Markov processes, we need to decide on $P(X, M, H)$, the prior for the joint distribution over $X$, $M$ and $H$. We assume the prior probabilities of $\traj m$ and $\traj {m^{\prime}}$ are conditionally independent given $X$ for each distinct $m, m^{\prime} \in \mm$. Therefore we have
+To complete the decomposition of the conditional probability $P(X, M, H, Z \mid Y)$ in terms the distributions defined by the family of component Markov processes, we need to decide on $P(X, M, H)$, a prior joint distribution over $X$, $M$ and $H$. We assume the prior probabilities of $\traj m$ and $\traj {m^{\prime}}$ are conditionally independent given $X$ for each distinct $m, m^{\prime} \in \mm$. Therefore we have
 \begin{align}
 P(X, M, H)
 & = \prod_{i \in \II} P(\traj i \mid m(i)) P(m(i) \mid X_i ) P(X) \\
