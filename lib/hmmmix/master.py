@@ -48,11 +48,19 @@ def bootstrap_initial_basis(aux_solver: once_off_event.OnceOffEventAuxiliarySolv
             z_by_i[soln_id] = aux_soln
             ub_by_i[soln_id] = max(problem.e_hat[(t, u)], 1)
 
-    # Also define solutions that allow *negative* observation counts.
-    # Consider this equivalent to a relaxation of the problem where we
-    # allow a single observed event to be (unsatisfyingly) explained as
-    # being caused by multiple causes that we expect to have produced two
-    # events.
+    # Also define solutions that allow *negative* observation counts. Consider
+    # this equivalent to a relaxation of the problem where we allow a single
+    # observed event to be (rather unsatisfyingly) explained as being caused by
+    # multiple causes that we expect to have produced two events, but for some
+    # reason we only saw a single event, i.e. one "went missing" somehow.
+    # There may not be a good justification for allowing this in a given
+    # application. Yet it is very enticing to allow this relaxation, as the
+    # relaxed problem appears much easier to solve!
+    #
+    # This trick is inspired by an equivalent relaxation as applied to relax
+    # vehicle routing problems, as described in column-generation literature.
+    # Ref: Rousseau, Gendreau, Feillet (2007)
+    # "Interior point stabilisation for column generation."
 
     for t in T:
         for u in U:
