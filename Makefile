@@ -1,14 +1,16 @@
 LIBTRELLIS=lib/hmmmix/trellis/libtrellis.cpython-38-x86_64-linux-gnu.so
 
+DEMO_ARGS=--obj-cutoff -3800.0
+
 all:	demo
 .PHONY:	all
 
 demo:	lib/hmmmix/main.py data/transactions.npy $(LIBTRELLIS)
-	python -m lib.hmmmix.main --obj-cutoff -4200.0 $(word 2,$^)
+	python -m lib.hmmmix.main $(DEMO_ARGS) $(word 2,$^)
 .PHONY:	demo
 
 demo-profile:	lib/hmmmix/main.py data/transactions.npy $(LIBTRELLIS)
-	python -m lib.hmmmix.main --profile $(word 2,$^)
+	python -m lib.hmmmix.main --profile $(DEMO_ARGS) $(word 2,$^)
 .PHONY:	demo-profile
 
 test:
