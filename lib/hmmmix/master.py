@@ -58,6 +58,9 @@ def e_support(aux_solution: base.AuxiliarySolution) -> typing.Set[int]:
 
 class RelaxedMasterSolver(base.MasterSolver):
 
+    def __init__(self, obj_cutoff=None):
+        self.obj_cutoff = obj_cutoff
+
     def solve(self, problem: base.MasterProblem) -> typing.Optional[base.MasterSolution]:
         T = problem.times
         U = problem.event_types
@@ -113,6 +116,10 @@ class RelaxedMasterSolver(base.MasterSolver):
 
             obj = cover_solution.objective
             print("restricted relaxed exact cover problem solved, objective=%r" % (obj, ))
+
+            if self.obj_cutoff != None and self.obj_cutoff <= obj:
+                print("halting as objective cutoff %g exceeded by objective %g" % (self.obj_cutoff, obj))
+                return cover_solution
 
             prizes = cover_solution.prizes
 

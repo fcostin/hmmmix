@@ -10,6 +10,8 @@ def parse_args():
     p.add_argument('input_fns', metavar='F', type=str, nargs=1,
         help='filename of input event count data (binary npy format)')
     p.add_argument('--profile', '-p', action='store_true')
+    p.add_argument('--obj-cutoff', type=float,
+        help='halt optimisation after reaching objective cutoff')
     return p.parse_args()
 
 
@@ -30,7 +32,7 @@ def do_solve(args):
     print('n_time: %d' % (n_time, ))
     print('n_type: %d' % (n_type, ))
 
-    s = master.RelaxedMasterSolver()
+    s = master.RelaxedMasterSolver(obj_cutoff=args.obj_cutoff)
 
     problem = base.MasterProblem(
         times=T,

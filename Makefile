@@ -4,7 +4,7 @@ all:	demo
 .PHONY:	all
 
 demo:	lib/hmmmix/main.py data/transactions.npy $(LIBTRELLIS)
-	python -m lib.hmmmix.main $(word 2,$^)
+	python -m lib.hmmmix.main --obj-cutoff -4200.0 $(word 2,$^)
 .PHONY:	demo
 
 demo-profile:	lib/hmmmix/main.py data/transactions.npy $(LIBTRELLIS)
