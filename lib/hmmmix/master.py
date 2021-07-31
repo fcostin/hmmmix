@@ -133,11 +133,11 @@ class RelaxedMasterSolver(base.MasterSolver):
             for tu in e_support(z):
                 i_with_support_t_u[tu].add(i)
 
+        use_primal = False
 
         while True:
             print('iter...')
 
-            use_primal = False
             if use_primal:
                 solver = exact_cover_solver_primal.PrimalCoverSolver(
                 )
@@ -163,6 +163,10 @@ class RelaxedMasterSolver(base.MasterSolver):
 
             if self.obj_cutoff != None and self.obj_cutoff <= obj:
                 print("halting as objective cutoff %g exceeded by objective %g" % (self.obj_cutoff, obj))
+                if not use_primal:
+                    print("solving LP once more to recover primal solution")
+                    use_primal = True
+                    continue
                 return cover_solution
 
             prizes = cover_solution.prizes
@@ -192,6 +196,9 @@ class RelaxedMasterSolver(base.MasterSolver):
                 best_aux_solver_id = aux_solver_id
 
             if best_aux_soln is None:
+                print("solving LP once more to recover primal solution")
+                use_primal = True
+                continue
                 return cover_solution
 
             print('best aux objective: %r' % (best_aux_objective, ))
