@@ -134,6 +134,7 @@ class RelaxedMasterSolver(base.MasterSolver):
                 i_with_support_t_u[tu].add(i)
 
         use_primal = False
+        finish_up = False
 
         while True:
             print('iter...')
@@ -166,7 +167,11 @@ class RelaxedMasterSolver(base.MasterSolver):
                 if not use_primal:
                     print("solving LP once more to recover primal solution")
                     use_primal = True
+                    finish_up = True
                     continue
+                return cover_solution
+
+            if finish_up:
                 return cover_solution
 
             prizes = cover_solution.prizes
@@ -197,8 +202,10 @@ class RelaxedMasterSolver(base.MasterSolver):
 
             if best_aux_soln is None:
                 print("solving LP once more to recover primal solution")
-                use_primal = True
-                continue
+                if not use_primal:
+                    use_primal = True
+                    finish_up = True
+                    continue
                 return cover_solution
 
             print('best aux objective: %r' % (best_aux_objective, ))
