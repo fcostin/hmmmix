@@ -160,9 +160,9 @@ class ProblemSpec(typing.NamedTuple):
 
 
 def align_to_period(period, n_times, n_event_types, prizes):
+    # TODO FIXME this throws away part of the problem.
     offcut = n_times % period
     if offcut != 0:
-        print("todo fixme: ignoring last %d timestemps")
         n_times -= offcut
         prizes = prizes[:-offcut, :]
 
@@ -172,14 +172,11 @@ def align_to_period(period, n_times, n_event_types, prizes):
     return period, n_times, n_event_types, prizes
 
 
-def solve(n_times, n_event_types, prizes, decompose):
-    period = 7
+def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, verbose=False):
 
     period, n_times, n_event_types, prizes = align_to_period(period, n_times, n_event_types, prizes)
 
     n_periods = n_times // period
-
-    n_R = 2 ** 2
 
     W = numpy.arange(n_periods)
     D = numpy.arange(period)
@@ -187,7 +184,6 @@ def solve(n_times, n_event_types, prizes, decompose):
     R = numpy.arange(n_R)
 
     approx_probabilities = (0.5 ** numpy.arange(1, n_R+1))
-    print('approx_probabilities: %r' % (approx_probabilities, ))
 
     log_q = numpy.empty(shape=(period, n_event_types, n_R), dtype=numpy.float64)
     log_q[:, :, :] = numpy.log(approx_probabilities)[numpy.newaxis, numpy.newaxis, :]
@@ -221,19 +217,19 @@ def solve(n_times, n_event_types, prizes, decompose):
             for u in U:
                 subspec = spec.restrict(D=[d], U=[u])
                 subproblem = subspec.make_problem()
-                subsolution = _solve(subproblem)
+                subsolution = _solve(subproblem, verbose=verbose)
 
                 agg_solution['id'] += subsolution['id'] + '|'
                 agg_solution['obj'] += subsolution['obj']
                 agg_solution['log_prob'] += subsolution['log_prob']
     else:
         problem = spec.make_problem()
-        agg_solution = _solve(problem)
+        agg_solution = _solve(problem, verbose=verbose)
 
     return agg_solution
 
 
-def _solve(p: Problem):
+def _solve(p: Problem, verbose: bool):
     """
     Prototype auxiliary solver.
 
@@ -437,7 +433,7 @@ def _solve(p: Problem):
         bounds=bounds,
         method='interior-point',
         options={
-            'disp': True,
+            'disp': verbose,
             'presolve': False, # Presolve gives 12x slowdown. Disable it!
             'rr': False, # note: Presolve rr is main cause of slowdown.
             'tol': 1.0e-7,
@@ -449,15 +445,13 @@ def _solve(p: Problem):
     if not success:
         status = res['status']
         message = res['message']
-        print('failed to find an optimal solution: status=%r; message=%r' % (
+        if verbose:
+            print('failed to find an optimal solution: status=%r; message=%r' % (
         status, message))
         return None
 
     # recover objective
     objective_value = res['fun']
-
-    print('got objective: %r' % (objective_value), )
-
 
     # recover solution
     primal_soln = res['x']
@@ -500,8 +494,6 @@ def _solve(p: Problem):
         d,u,r = dur
         log_prob += primal_soln[i] * p.log_prior_q[d,u,r]
 
-    print('log prob of solution: %r' % (log_prob, ))
-
     return {
         'id': soln_id,
         'obj': objective_value,
@@ -515,20 +507,28 @@ def main():
     with open(args.input_fns[0], 'rb') as f:
         data = numpy.load(f)
 
-    data = data[-7*52*2:, :]
-
     def do_solve():
         T, U = data.shape
         log_pr_one_off_explanation = -numpy.log(T) -numpy.log(U)
         large_prize = - log_pr_one_off_explanation
         assert large_prize > 0.0
         prizes = numpy.where(data > 0, large_prize, -large_prize)
-        soln = solve(T, U, prizes, decompose=True)
-        print()
-        print('***')
-        print('obj: %r' % (soln['obj'], ))
-        print('log_prob: %r' % (soln['log_prob'],))
-        print('soln_id %s' % (soln['id'], ))
+        # Sweep over a few different choices for period.
+        # BEWARE results will not be comparable until align_to_period &
+        # formulation is fixed to handle n_times that is not an integer
+        # multiple of the period.
+        periods = [6, 7, 8, 14, 21, 28, 30, 31]
+        for period in periods:
+            soln = solve(
+                n_times=T,
+                n_event_types=U,
+                prizes=prizes,
+                decompose=True,
+                period=period,
+                verbose=False,
+            )
+            summary = 'period %d\tobj %.1f\tlog_prob %.1f'
+            print(summary % (period, soln['obj'], soln['log_prob']))
 
     if args.profile:
         import cProfile, pstats
