@@ -1,4 +1,5 @@
 import argparse
+import base64
 import numpy
 import numpy.typing
 import itertools
@@ -13,6 +14,41 @@ def parse_args():
                    help='filename of input binary npy data file')
     p.add_argument('--profile', '-p', action='store_true')
     return p.parse_args()
+
+
+def b64encode_binvars(binvars: numpy.typing.NDArray[numpy.uint8]) -> str:
+    return str(base64.b64encode(numpy.packbits(binvars)), 'utf-8')
+
+
+def b64decode_binvars(s: str) -> numpy.typing.NDArray[numpy.uint8]:
+    return numpy.unpackbits(numpy.asarray((map(ord, base64.b64decode(s))), dtype=numpy.uint8))
+
+
+def asbit(x, tol=2.0e-2):
+    if abs(x) <= tol:
+        return 0
+    if abs(1-x) <= tol:
+        return 1
+    raise ValueError(asbit)
+
+
+def idstring_encode_soln(y_by_dur, zp_by_wdur, W) -> str:
+    result = ''
+    for dur in sorted(y_by_dur):
+        d,u,r = dur
+        y = asbit(y_by_dur[dur])
+        if not asbit(y):
+            continue
+        event_bits = numpy.asarray([asbit(zp_by_wdur[(w, d, u, r)]) for w in W], dtype=numpy.uint8)
+        # Note that none of the chars "(,):;" are used in base64 encoding
+        # so if we really want to, we can decode this id string to recover the parts
+        # ref: https://datatracker.ietf.org/doc/html/rfc3548.html
+        result += '%r:%s;' % (dur, b64encode_binvars(event_bits))
+    return result
+
+
+def idstring_decode_soln(s: str):
+    raise NotImplementedError()
 
 
 class Problem(typing.NamedTuple):
@@ -175,6 +211,7 @@ def solve(n_times, n_event_types, prizes, decompose):
     )
 
     agg_solution = {
+        'id': '',
         'obj': 0.0,
         'log_prob': 0.0,
     }
@@ -186,6 +223,7 @@ def solve(n_times, n_event_types, prizes, decompose):
                 subproblem = subspec.make_problem()
                 subsolution = _solve(subproblem)
 
+                agg_solution['id'] += subsolution['id'] + '|'
                 agg_solution['obj'] += subsolution['obj']
                 agg_solution['log_prob'] += subsolution['log_prob']
     else:
@@ -424,22 +462,27 @@ def _solve(p: Problem):
     # recover solution
     primal_soln = res['x']
 
-    for dur in p.DUR:
-        y_dur = primal_soln[y_i_by_dur[dur]]
-        y_dur = numpy.round(y_dur, decimals=2)
-        if y_dur > 0.0:
-            print('y[%r] = %r' % (dur, y_dur))
+    spam_solution = False
+    if spam_solution:
+        for dur in p.DUR:
+            y_dur = primal_soln[y_i_by_dur[dur]]
+            y_dur = numpy.round(y_dur, decimals=2)
+            if y_dur > 0.0:
+                print('y[%r] = %r' % (dur, y_dur))
 
-    for wdur in p.WDUR:
-        zp_wdur = primal_soln[zp_i_by_wdur[wdur]]
-        zm_wdur = primal_soln[zm_i_by_wdur[wdur]]
-        zp_wdur = numpy.round(zp_wdur, decimals=2)
-        zm_wdur = numpy.round(zm_wdur, decimals=2)
-        if zp_wdur > 0.0:
-            print('z(+)[%r] = %r' % (wdur, zp_wdur))
-        if zm_wdur > 0.0:
-            print('z(-)[%r] = %r' % (wdur, zm_wdur))
+        for wdur in p.WDUR:
+            zp_wdur = primal_soln[zp_i_by_wdur[wdur]]
+            zm_wdur = primal_soln[zm_i_by_wdur[wdur]]
+            zp_wdur = numpy.round(zp_wdur, decimals=2)
+            zm_wdur = numpy.round(zm_wdur, decimals=2)
+            if zp_wdur > 0.0:
+                print('z(+)[%r] = %r' % (wdur, zp_wdur))
+            if zm_wdur > 0.0:
+                print('z(-)[%r] = %r' % (wdur, zm_wdur))
 
+    y_by_dur = {dur:primal_soln[y_i_by_dur[dur]] for dur in p.DUR}
+    zp_by_wdur = {wdur: primal_soln[zp_i_by_wdur[wdur]] for wdur in p.WDUR}
+    soln_id = idstring_encode_soln(y_by_dur, zp_by_wdur, p.W)
 
     # recover log prob -- equal to objective without prize term
     log_prob = 0.0
@@ -459,10 +502,11 @@ def _solve(p: Problem):
 
     print('log prob of solution: %r' % (log_prob, ))
 
-    result = {}
-    result['obj'] = objective_value
-    result['log_prob'] = log_prob
-    return result
+    return {
+        'id': soln_id,
+        'obj': objective_value,
+        'log_prob': log_prob,
+    }
 
 
 def main():
@@ -484,6 +528,7 @@ def main():
         print('***')
         print('obj: %r' % (soln['obj'], ))
         print('log_prob: %r' % (soln['log_prob'],))
+        print('soln_id %s' % (soln['id'], ))
 
     if args.profile:
         import cProfile, pstats
