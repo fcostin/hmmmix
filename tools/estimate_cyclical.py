@@ -1,6 +1,8 @@
 import argparse
 import numpy
+import numpy.typing
 import itertools
+import typing
 from scipy.optimize import linprog
 from scipy.sparse import coo_matrix
 
@@ -13,7 +15,187 @@ def parse_args():
     return p.parse_args()
 
 
-def solve(n_times, n_event_types, prizes):
+class Problem(typing.NamedTuple):
+    period: int
+
+    # indices: [t, u]
+    prizes: numpy.typing.NDArray[numpy.float64]
+
+    # indices: [d,u,r]
+    log_q: numpy.typing.NDArray[numpy.float64]
+    log_one_minus_q: numpy.typing.NDArray[numpy.float64]
+    log_prior_q: numpy.typing.NDArray[numpy.float64]
+
+    W: typing.Sequence[typing.Tuple[int]]
+    D: typing.Sequence[typing.Tuple[int]]
+    U: typing.Sequence[typing.Tuple[int]]
+    R: typing.Sequence[typing.Tuple[int]]
+
+    WDUR: typing.Sequence[typing.Tuple[int, int, int, int]]
+    DUR: typing.Sequence[typing.Tuple[int, int, int]]
+    WDU: typing.Sequence[typing.Tuple[int, int, int]]
+    DU: typing.Sequence[typing.Tuple[int, int]]
+
+    n_WDUR: int
+    n_DUR: int
+    n_WDU: int
+    n_DU: int
+    n_R: int
+
+    n: int  # number of decision variables
+
+
+class ProblemSpec(typing.NamedTuple):
+    period: int
+
+    # indices: [t, u]
+    prizes: numpy.typing.NDArray[numpy.float64]
+
+    # indices: [d,u,r]
+    log_q: numpy.typing.NDArray[numpy.float64]
+    log_one_minus_q: numpy.typing.NDArray[numpy.float64]
+    log_prior_q: numpy.typing.NDArray[numpy.float64]
+
+    W: typing.Sequence[typing.Tuple[int]]
+    D: typing.Sequence[typing.Tuple[int]]
+    U: typing.Sequence[typing.Tuple[int]]
+    R: typing.Sequence[typing.Tuple[int]]
+
+    def restrict(self, D=None, U=None):
+        if D is None:
+            restricted_D = list(self.D)
+        else:
+            restricted_D = list(D)
+        if U is None:
+            restricted_U = list(self.U)
+        else:
+            restricted_U = list(U)
+
+        assert set(restricted_D) <= set(self.D)
+        assert set(restricted_U) <= set(self.U)
+
+        return ProblemSpec(
+            period=self.period,
+            prizes=self.prizes,
+            log_q=self.log_q,
+            log_one_minus_q=self.log_one_minus_q,
+            log_prior_q=self.log_prior_q,
+            W=self.W,
+            D=restricted_D,
+            U=restricted_U,
+            R=self.R,
+        )
+
+    def make_problem(self) -> Problem:
+        WDUR = list(itertools.product(self.W, self.D, self.U, self.R))
+        DUR = list(itertools.product(self.D, self.U, self.R))
+        WDU = list(itertools.product(self.W, self.D, self.U))
+        DU = list(itertools.product(self.D, self.U))
+
+        n_WDUR = len(WDUR)
+        n_DUR = len(DUR)
+        n_WDU = len(WDU)
+        n_DU = len(DU)
+        n_R = len(self.R)
+
+        n = 2*n_WDUR + n_DUR
+
+        return Problem(
+            period=self.period,
+            prizes=self.prizes,
+            log_q=self.log_q,
+            log_one_minus_q=self.log_one_minus_q,
+            log_prior_q=self.log_prior_q,
+            W=self.W,
+            D=self.D,
+            U=self.U,
+            R=self.R,
+            WDUR=WDUR,
+            DUR=DUR,
+            WDU=WDU,
+            DU=DU,
+            n_WDUR=n_WDUR,
+            n_DUR=n_DUR,
+            n_WDU=n_WDU,
+            n_DU=n_DU,
+            n_R=n_R,
+            n=n,
+        )
+
+
+def align_to_period(period, n_times, n_event_types, prizes):
+    offcut = n_times % period
+    if offcut != 0:
+        print("todo fixme: ignoring last %d timestemps")
+        n_times -= offcut
+        prizes = prizes[:-offcut, :]
+
+    n_periods = int(numpy.ceil(n_times / period))
+    assert n_times == period * n_periods
+
+    return period, n_times, n_event_types, prizes
+
+
+def solve(n_times, n_event_types, prizes, decompose):
+    period = 7
+
+    period, n_times, n_event_types, prizes = align_to_period(period, n_times, n_event_types, prizes)
+
+    n_periods = n_times // period
+
+    n_R = 2 ** 2
+
+    W = numpy.arange(n_periods)
+    D = numpy.arange(period)
+    U = numpy.arange(n_event_types)
+    R = numpy.arange(n_R)
+
+    approx_probabilities = (0.5 ** numpy.arange(1, n_R+1))
+    print('approx_probabilities: %r' % (approx_probabilities, ))
+
+    log_q = numpy.empty(shape=(period, n_event_types, n_R), dtype=numpy.float64)
+    log_q[:, :, :] = numpy.log(approx_probabilities)[numpy.newaxis, numpy.newaxis, :]
+    log_one_minus_q = numpy.empty(shape=(period, n_event_types, n_R), dtype=numpy.float64)
+    log_one_minus_q[:, :, :] = numpy.log(1.0 - approx_probabilities)[numpy.newaxis, numpy.newaxis, :]
+
+    log_prior_q  = numpy.empty(shape=(period, n_event_types, n_R), dtype=numpy.float64)
+    log_prior_q[:, :, :] = numpy.log(1.0 / n_R) # choose one of n_r choices, uniform prior.
+
+    spec = ProblemSpec(
+        period=period,
+        prizes=prizes,
+        W=W,
+        D=D,
+        U=U,
+        R=R,
+        log_q=log_q,
+        log_one_minus_q=log_one_minus_q,
+        log_prior_q=log_prior_q,
+
+    )
+
+    agg_solution = {
+        'obj': 0.0,
+        'log_prob': 0.0,
+    }
+
+    if decompose:
+        for d in D:
+            for u in U:
+                subspec = spec.restrict(D=[d], U=[u])
+                subproblem = subspec.make_problem()
+                subsolution = _solve(subproblem)
+
+                agg_solution['obj'] += subsolution['obj']
+                agg_solution['log_prob'] += subsolution['log_prob']
+    else:
+        problem = spec.make_problem()
+        agg_solution = _solve(problem)
+
+    return agg_solution
+
+
+def _solve(p: Problem):
     """
     Prototype auxiliary solver.
 
@@ -76,91 +258,52 @@ def solve(n_times, n_event_types, prizes):
 
     Notes:
 
-    Ideally we would optimize with decision variables q_{d, u} in [0, 1], but
-    this introduces nonlinear terms of the form z log(q) into the objective
+    (a) Ideally we would optimize with decision variables q_{d, u} in [0, 1],
+    but this introduces nonlinear terms of the form z log(q) into the objective
     function. To avoid this we approximate each q_{d, u} by one of R
     prespecified constant probability values. We break the nonlinearity by
     making R copies of each original decision variable and adding additional
     variables and constraints to encourage a single approximation r in R to
     be chosen for each q_{d, u}.
 
-    The variable z^{-}_{w,d,u,r} is used to encode "0 events of type u were
+    (b) The variable z^{-}_{w,d,u,r} is used to encode "0 events of type u were
     observed at time (w, d)". It is necessary to use this instead of
     1 - z^{+}_{w,d,u,r} so we do not penalise the objective when terms for
     values of r that have not been "chosen" via y_{d,u,r} are forced to vanish.
+
+    (c) The problem as formulated is much simpler: it decomposes into
+    completely independent sub-problems for each combination of D and U.
+    As formulated, there is no coupling between these sub problems. We are
+    fitting |D| x |U| different independent models in parallel.
     """
-
-    period = 7
-
-    offcut = n_times % period
-    if offcut != 0:
-        print("todo fixme: ignoring last %d timestemps")
-        n_times -= offcut
-        prizes = prizes[:-offcut, :]
-
-    n_periods = int(numpy.ceil(n_times / period))
-
-    assert n_times == period * n_periods
-
-    n_R = 2 ** 2
-
-    W = numpy.arange(n_periods)
-    D = numpy.arange(period)
-    U = numpy.arange(n_event_types)
-    R = numpy.arange(n_R)
-
-    WDUR = list(itertools.product(W, D, U, R))
-    DUR = list(itertools.product(D, U, R))
-    WDU = list(itertools.product(W, D, U))
-    DU = list(itertools.product(D, U))
-
-    n_WDUR = len(WDUR)
-    n_DUR = len(DUR)
-    n_WDU = len(WDU)
-    n_DU = len(DU)
-
-    n = 2*n_WDUR + n_DUR # number of decision variables
-
-    print('n_WDUR=%r, n_DUR=%r, n_WDU=%r, n_DU=%r' % (n_WDUR, n_DUR, n_WDU, n_DU))
-
-    approx_probabilities = (0.5 ** numpy.arange(1, n_R+1))
-    print('approx_probabilities: %r' % (approx_probabilities, ))
-
-    log_q = numpy.empty(shape=(period, n_event_types, n_R), dtype=numpy.float64)
-    log_q[:, :, :] = numpy.log(approx_probabilities)[numpy.newaxis, numpy.newaxis, :]
-    log_one_minus_q = numpy.empty(shape=(period, n_event_types, n_R), dtype=numpy.float64)
-    log_one_minus_q[:, :, :] = numpy.log(1.0 - approx_probabilities)[numpy.newaxis, numpy.newaxis, :]
-
-    log_prior_q  = numpy.empty(shape=(period, n_event_types, n_R), dtype=numpy.float64)
-    log_prior_q[:, :, :] = numpy.log(1.0 / n_R) # choose one of n_r choices, uniform prior.
 
     # Assemble decision variables and objective terms
 
-    obj_coeffs = numpy.empty(dtype=numpy.float64, shape=(n,))
-    bounds = [None] * n
+    obj_coeffs = numpy.empty(dtype=numpy.float64, shape=(p.n,))
+    bounds = [None] * p.n
 
     zp_i_by_wdur = {}
     zm_i_by_wdur = {}
     y_i_by_dur = {}
 
-    for i, wdur in enumerate(WDUR):  # z^{+}_{w,d,u,r}
+    for i, wdur in enumerate(p.WDUR):  # z^{+}_{w,d,u,r}
         w, d, u, r = wdur
-        t = w * period + d
-        obj_coeffs[i] = log_q[d,u,r] + prizes[t, u]
+        t = w * p.period + d
+        obj_coeffs[i] = p.log_q[d,u,r] + p.prizes[t, u]
         bounds[i] = (0.0, 1.0)
         zp_i_by_wdur[wdur] = i
 
-    for i0, wdur in enumerate(WDUR):  # z^{-}_{w,d,u,r}
-        i = i0 + n_WDUR
+    for i0, wdur in enumerate(p.WDUR):  # z^{-}_{w,d,u,r}
+        i = i0 + p.n_WDUR
         _, d, u, r = wdur
-        obj_coeffs[i] = log_one_minus_q[d,u,r]
+        obj_coeffs[i] = p.log_one_minus_q[d,u,r]
         bounds[i] = (0.0, 1.0)
         zm_i_by_wdur[wdur] = i
 
-    for i0, dur in enumerate(DUR):
-        i = i0 + 2*n_WDUR
+    for i0, dur in enumerate(p.DUR):
+        i = i0 + 2*p.n_WDUR
         d,u,r = dur
-        obj_coeffs[i] = log_prior_q[d,u,r]
+        obj_coeffs[i] = p.log_prior_q[d,u,r]
         bounds[i] = (0.0, 1.0)
         y_i_by_dur[dur] = i
 
@@ -171,7 +314,7 @@ def solve(n_times, n_event_types, prizes):
 
     # Assemble inequality constraints
 
-    n_entries = (n_WDU * n_R) + (n_DU * n_R)
+    n_entries = (p.n_WDU * p.n_R) + (p.n_DU * p.n_R)
     con_data = numpy.empty(shape=(n_entries,), dtype=numpy.float64)
     col_indices = numpy.empty(shape=(n_entries,), dtype=numpy.int64)
     row_indices = numpy.empty(shape=(n_entries,), dtype=numpy.int64)
@@ -181,33 +324,33 @@ def solve(n_times, n_event_types, prizes):
 
     # constraint: for all {w,d,u}:  sum_{r} z^{+}_{w,d,u,r}  <=  1
     # -- n_WDU constraints, each with n_R LHS entries
-    for j, wdu in enumerate(WDU):
+    for j, wdu in enumerate(p.WDU):
         w,d,u = wdu
-        con_data[entry:entry+n_R] = 1.0
-        for r in range(n_R):
-            assert zp_i_by_wdur[(w,d,u,r)] < n
+        con_data[entry:entry+p.n_R] = 1.0
+        for r in range(p.n_R):
+            assert zp_i_by_wdur[(w,d,u,r)] < p.n
             col_indices[entry+r] = zp_i_by_wdur[(w,d,u,r)]
-        row_indices[entry:entry + n_R] = con + j
-        entry += n_R
-    con += n_WDU
+        row_indices[entry:entry + p.n_R] = con + j
+        entry += p.n_R
+    con += p.n_WDU
 
     # constraint: for all {d,u}:  sum_{r} y_{d,u,r}  <=  1
     # -- n_DU constraints, each with n_R LHS entries
-    for j, du in enumerate(DU):
+    for j, du in enumerate(p.DU):
         d, u = du
-        con_data[entry:entry + n_R] = 1.0
-        for r in range(n_R):
-            assert y_i_by_dur[(d, u, r)] < n
+        con_data[entry:entry + p.n_R] = 1.0
+        for r in range(p.n_R):
+            assert y_i_by_dur[(d, u, r)] < p.n
             col_indices[entry + r] = y_i_by_dur[(d, u, r)]
-        row_indices[entry:entry + n_R] = con + j
-        entry += n_R
-    con += n_DU
+        row_indices[entry:entry + p.n_R] = con + j
+        entry += p.n_R
+    con += p.n_DU
 
     assert entry == n_entries
 
     a_ub_matrix = coo_matrix(
         (con_data, (row_indices, col_indices)),
-        shape=(con, n),
+        shape=(con, p.n),
         dtype=numpy.float64,
     )
 
@@ -215,7 +358,7 @@ def solve(n_times, n_event_types, prizes):
 
     # Assemble equality constraints
 
-    n_eq_entries = (n_WDUR * 3)
+    n_eq_entries = (p.n_WDUR * 3)
     con_eq_data = numpy.empty(shape=(n_eq_entries,), dtype=numpy.float64)
     col_eq_indices = numpy.empty(shape=(n_eq_entries,), dtype=numpy.int64)
     row_eq_indices = numpy.empty(shape=(n_eq_entries,), dtype=numpy.int64)
@@ -225,7 +368,7 @@ def solve(n_times, n_event_types, prizes):
 
     # constraint: for all {w,d,u,r}: z^{+}_{w,d,u,r} + z^{-}_{w,d,u,r} =  y_{d,u,r}
     # -- n_WDUR constraints, each with 3 LHS entries
-    for j, wdur in enumerate(WDUR):
+    for j, wdur in enumerate(p.WDUR):
         w,d,u,r = wdur
         con_eq_data[entry] = 1.0
         con_eq_data[entry+1] = 1.0
@@ -235,13 +378,13 @@ def solve(n_times, n_event_types, prizes):
         col_eq_indices[entry+2] = y_i_by_dur[(d,u,r)]
         row_eq_indices[entry:entry+3] = con + j
         entry += 3
-    con += n_WDUR
+    con += p.n_WDUR
 
     assert entry == n_eq_entries
 
     a_eq_matrix = coo_matrix(
         (con_eq_data, (row_eq_indices, col_eq_indices)),
-        shape=(con, n),
+        shape=(con, p.n),
         dtype=numpy.float64,
     )
 
@@ -258,7 +401,8 @@ def solve(n_times, n_event_types, prizes):
         options={
             'disp': True,
             'presolve': False, # Presolve gives 12x slowdown. Disable it!
-            'tol': 1.0e-8,
+            'rr': False, # note: Presolve rr is main cause of slowdown.
+            'tol': 1.0e-7,
             'sparse': True,
         }
     )
@@ -276,16 +420,17 @@ def solve(n_times, n_event_types, prizes):
 
     print('got objective: %r' % (objective_value), )
 
+
     # recover solution
     primal_soln = res['x']
 
-    for dur in DUR:
+    for dur in p.DUR:
         y_dur = primal_soln[y_i_by_dur[dur]]
         y_dur = numpy.round(y_dur, decimals=2)
         if y_dur > 0.0:
             print('y[%r] = %r' % (dur, y_dur))
 
-    for wdur in WDUR:
+    for wdur in p.WDUR:
         zp_wdur = primal_soln[zp_i_by_wdur[wdur]]
         zm_wdur = primal_soln[zm_i_by_wdur[wdur]]
         zp_wdur = numpy.round(zp_wdur, decimals=2)
@@ -298,21 +443,26 @@ def solve(n_times, n_event_types, prizes):
 
     # recover log prob -- equal to objective without prize term
     log_prob = 0.0
-    for i, wdur in enumerate(WDUR):  # z^{+}_{w,d,u,r}
+    for i, wdur in enumerate(p.WDUR):  # z^{+}_{w,d,u,r}
         w, d, u, r = wdur
-        log_prob += primal_soln[i] * log_q[d,u,r]
+        log_prob += primal_soln[i] * p.log_q[d,u,r]
 
-    for i0, wdur in enumerate(WDUR):  # z^{-}_{w,d,u,r}
-        i = i0 + n_WDUR
+    for i0, wdur in enumerate(p.WDUR):  # z^{-}_{w,d,u,r}
+        i = i0 + p.n_WDUR
         _, d, u, r = wdur
-        log_prob += primal_soln[i] * log_one_minus_q[d, u, r]
+        log_prob += primal_soln[i] * p.log_one_minus_q[d, u, r]
 
-    for i0, dur in enumerate(DUR):
-        i = i0 + 2*n_WDUR
+    for i0, dur in enumerate(p.DUR):
+        i = i0 + 2*p.n_WDUR
         d,u,r = dur
-        log_prob += primal_soln[i] * log_prior_q[d,u,r]
+        log_prob += primal_soln[i] * p.log_prior_q[d,u,r]
 
     print('log prob of solution: %r' % (log_prob, ))
+
+    result = {}
+    result['obj'] = objective_value
+    result['log_prob'] = log_prob
+    return result
 
 
 def main():
@@ -329,7 +479,11 @@ def main():
         large_prize = - log_pr_one_off_explanation
         assert large_prize > 0.0
         prizes = numpy.where(data > 0, large_prize, -large_prize)
-        solve(T, U, prizes)
+        soln = solve(T, U, prizes, decompose=True)
+        print()
+        print('***')
+        print('obj: %r' % (soln['obj'], ))
+        print('log_prob: %r' % (soln['log_prob'],))
 
     if args.profile:
         import cProfile, pstats
