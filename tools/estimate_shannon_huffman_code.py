@@ -30,11 +30,21 @@ def parse_args():
 
 
 def quantised(bits_per_bin, probs):
-    d = 1.0 * ((2 ** bits_per_bin) - 1)
+    assert numpy.all(probs > 0.0)
+    # Approximate each probability as (1/2**n) for n>=0
+    # log2(prob) = -n
+    # n = -log2(prob)
+
+    n = -numpy.log2(probs)
+    n = numpy.round(n)
+    n = numpy.minimum(numpy.maximum(0, n), 2**bits_per_bin - 1)
+
+    q = 1.0 / (2 ** n)
+
     # Force at least 1 / d weight for each quantised prob
     # Each bin with observed freq counts has to to have prob > 0.
-    q = numpy.minimum(numpy.maximum(1, numpy.round(probs * d)), d)
-    return q / d
+    assert numpy.all(q > 0.0)
+    return q
 
 
 def main():
