@@ -102,7 +102,7 @@ def solve(n_times, n_event_types, prizes):
 
     assert n_times == period * n_periods
 
-    n_R = 2 ** 3 # TODO
+    n_R = 2 ** 2
 
     W = numpy.arange(n_periods)
     D = numpy.arange(period)
@@ -257,7 +257,7 @@ def solve(n_times, n_event_types, prizes):
         method='interior-point',
         options={
             'disp': True,
-            'presolve': False,
+            'presolve': False, # Presolve gives 12x slowdown. Disable it!
             'tol': 1.0e-8,
             'sparse': True,
         }
@@ -273,81 +273,6 @@ def solve(n_times, n_event_types, prizes):
 
     # recover objective
     objective_value = res['fun']
-
-    """
-    1. 2021/08/01   17:30
-    solve:
-        no constrains implemented yet
-        objective coeffs wrong way around
-        data[:, :]
-    obj -2491941.2 # nats
-    
-    implemented constraints
-    found error: forgot to flip objective coeffs (solver wants min not max)
-    
-    2. 2021/08/01   18:21
-    solve:
-        some objective terms still defective
-        data[-7*52:, :]
-    obj -31586.0 # nats
-    
-    found error: obj term for z minus was wrong
-    
-    adjusted prize pricing to use less arbitrary value.
-    
-    3. 2021/08/01   19:10
-    solve:
-        data = data[-7*52:, :]
-        2 bits used to approximate each probability
-        tol: 1.0e-8
-    
-    obj: -1521.8098833537094
-    log prob of solution: -790.2 # nats
-    
-    4. 2021/08/01   19:13
-    solve:
-        data = data[-7*52*2:, :]
-        2 bits used to approximate each probability
-        tol: 1.0e-8
-    
-    Solve took around 2 minutes before interior
-    point iterations started. Solution obtained
-    very promptly after that.
-    obj: -3503.8
-    log prob of solution: -1588.3 # nats
-    
-    Profiled medium size problem.
-    Presolve accounted for 22 seconds of 22 + delta
-    seconds running time. Unclear if presolve did
-    much.
-    
-    Turned off presolve.
-    
-    5. 2021/08/01   19:23
-    
-    solve:
-        data = data[-7*52*2:, :]
-        2 bits used to approximate each probability
-        tol: 1.0e-8
-        python profiling enabled
-    
-    Runtime took 10.7 seconds.
-    obj: -3503.8
-    log prob of solution: -1588.3 # nats
-    
-    6. 2021/08/01   19:26
-    
-    solve:
-        data = data[-7*52*2:, :]
-        3 bits used to approximate each probability
-        tol: 1.0e-8
-        python profiling enabled
-    
-    Runtime took 94.8 seconds.
-    Of that time, 90.5 seconds in scipy.sparse.linalg.dsolve._superlu.gstrf
-    obj: -3480.75
-    log prob of solution: -1611.3 # nats
-    """
 
     print('got objective: %r' % (objective_value), )
 
