@@ -57,6 +57,8 @@ class Problem(typing.NamedTuple):
     # indices: [t, u]
     prizes: numpy.typing.NDArray[numpy.float64]
 
+    missing_times: typing.AbstractSet[int]
+
     # indices: [d,u,r]
     log_q: numpy.typing.NDArray[numpy.float64]
     log_one_minus_q: numpy.typing.NDArray[numpy.float64]
@@ -97,6 +99,9 @@ class ProblemSpec(typing.NamedTuple):
     U: typing.Sequence[typing.Tuple[int]]
     R: typing.Sequence[typing.Tuple[int]]
 
+    # elements: t
+    missing_times: typing.AbstractSet[int]
+
     def restrict(self, D=None, U=None):
         if D is None:
             restricted_D = list(self.D)
@@ -120,6 +125,7 @@ class ProblemSpec(typing.NamedTuple):
             D=restricted_D,
             U=restricted_U,
             R=self.R,
+            missing_times=self.missing_times,
         )
 
     def make_problem(self) -> Problem:
@@ -139,6 +145,7 @@ class ProblemSpec(typing.NamedTuple):
         return Problem(
             period=self.period,
             prizes=self.prizes,
+            missing_times=self.missing_times,
             log_q=self.log_q,
             log_one_minus_q=self.log_one_minus_q,
             log_prior_q=self.log_prior_q,
@@ -159,22 +166,27 @@ class ProblemSpec(typing.NamedTuple):
         )
 
 
-def align_to_period(period, n_times, n_event_types, prizes):
-    # TODO FIXME this throws away part of the problem.
-    offcut = n_times % period
-    if offcut != 0:
-        n_times -= offcut
-        prizes = prizes[:-offcut, :]
-
-    n_periods = int(numpy.ceil(n_times / period))
-    assert n_times == period * n_periods
-
-    return period, n_times, n_event_types, prizes
+def align_to_period_with_padding(period, n_times, n_event_types, prizes):
+    # The formulation wants the period to cleanly divide into the number of
+    # timesteps. So if things are misaligned, pad extra times marked as missing
+    # data to fix things up. See usages of missing_times in the formulation.
+    extra = n_times % period
+    if extra != 0:
+        padding = period - extra
+        assert 0 < padding and padding < period
+        n_times_prime = n_times + padding
+        assert n_times_prime % period == 0
+        prizes_prime = numpy.zeros(shape=(n_times_prime, n_event_types), dtype=prizes.dtype)
+        prizes_prime[:n_times, :] = prizes
+        missing_times = {(n_times+i) for i in range(padding)}
+        return period, n_times_prime, n_event_types, prizes_prime, missing_times
+    else:
+        return period, n_times, n_event_types, prizes, set()
 
 
 def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, verbose=False):
 
-    period, n_times, n_event_types, prizes = align_to_period(period, n_times, n_event_types, prizes)
+    period, n_times, n_event_types, prizes, missing_times = align_to_period_with_padding(period, n_times, n_event_types, prizes)
 
     n_periods = n_times // period
 
@@ -203,6 +215,7 @@ def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, ve
         log_q=log_q,
         log_one_minus_q=log_one_minus_q,
         log_prior_q=log_prior_q,
+        missing_times=missing_times,
 
     )
 
@@ -320,17 +333,37 @@ def _solve(p: Problem, verbose: bool):
     zm_i_by_wdur = {}
     y_i_by_dur = {}
 
+    # Support for problems with missing observations at certain times
+    # is expressed through the missing_times set. The current implementation
+    # just zeros out the corresponding terms in the objective function. We
+    # need this to handle problems where the range of time steps is not an
+    # integer multiple of the period.
+    #
+    # Upsides:
+    #   * avoids changing indexing convention
+    #   * relatively simple to implement
+    # Downsides:
+    #   * pollutes formulation with useless free variables
+
+
     for i, wdur in enumerate(p.WDUR):  # z^{+}_{w,d,u,r}
         w, d, u, r = wdur
         t = w * p.period + d
-        obj_coeffs[i] = p.log_q[d,u,r] + p.prizes[t, u]
+        if t in p.missing_times:
+            obj_coeffs[i] = 0.0
+        else:
+            obj_coeffs[i] = p.log_q[d,u,r] + p.prizes[t, u]
         bounds[i] = (0.0, 1.0)
         zp_i_by_wdur[wdur] = i
 
     for i0, wdur in enumerate(p.WDUR):  # z^{-}_{w,d,u,r}
         i = i0 + p.n_WDUR
-        _, d, u, r = wdur
-        obj_coeffs[i] = p.log_one_minus_q[d,u,r]
+        w, d, u, r = wdur
+        t = w * p.period + d
+        if t in p.missing_times:
+            obj_coeffs[i] = 0.0
+        else:
+            obj_coeffs[i] = p.log_one_minus_q[d,u,r]
         bounds[i] = (0.0, 1.0)
         zm_i_by_wdur[wdur] = i
 
@@ -476,6 +509,16 @@ def _solve(p: Problem, verbose: bool):
 
     y_by_dur = {dur:primal_soln[y_i_by_dur[dur]] for dur in p.DUR}
     zp_by_wdur = {wdur: primal_soln[zp_i_by_wdur[wdur]] for wdur in p.WDUR}
+
+    # We don't care about the emitted value at missing timesteps (if any).
+    # Zero it out.
+    for t in p.missing_times:
+        w = t // p.period
+        d = t % p.period
+        for u in p.U:
+            for r in p.R:
+                wdur = (w,d,u,r)
+                zp_by_wdur[wdur] = 0.0
     soln_id = idstring_encode_soln(y_by_dur, zp_by_wdur, p.W)
 
     # recover log prob -- equal to objective without prize term
@@ -514,9 +557,6 @@ def main():
         assert large_prize > 0.0
         prizes = numpy.where(data > 0, large_prize, -large_prize)
         # Sweep over a few different choices for period.
-        # BEWARE results will not be comparable until align_to_period &
-        # formulation is fixed to handle n_times that is not an integer
-        # multiple of the period.
         periods = [6, 7, 8, 14, 21, 28, 30, 31]
         for period in periods:
             soln = solve(
