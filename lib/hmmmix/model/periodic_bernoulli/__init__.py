@@ -7,6 +7,88 @@ from scipy.optimize import linprog
 from scipy.sparse import coo_matrix
 
 
+"""
+Prototype auxiliary solver.
+
+Assumes at most one event per day d and event type u.
+Assumes events generated independently for each (d, u)
+according to Bernoulli distribution with probability q_{d, u}
+
+Generative model:
+for each week w:
+    for each weekday d in w:
+        for each event type u:
+            emit event
+                with probability q_{d, u} = sum_r y_{d, u, r} q_{d,u,r}
+            with
+                t = day d of week w
+                event_type = u
+
+General scheme of formulation:
+
+    E be observed events
+    H be hypotheses
+
+max log P(E, H) + log P(H) + Prize(E)
+over E & H
+subject to constraints.
+
+Detailed formulation:
+
+Index sets:
+
+*   w in W: indexes over periods ("weeks")
+*   d in D: indexes within periods ("days")
+*   u in U: indexes over event types
+*   r in R: indexes over approximating probabilities
+
+Input parameters (all constants):
+
+*   for all {r}:        log q_{d,u,r} in [-inf, 0]
+*   for all {d,u,r}:    log P(q_{d,u}=q_{d,u,r}) in [-inf, 0]
+*   for all {w,d,u}:    prize(t=t(w, d), u=u) in [-inf, inf]
+
+Maximise
+
+        sum_{w,d,u,r} z^{+}_{w,d,u,r} log q_{d,u,r}
+    +   sum_{w,d,u,r} z^{-}_{w,d,u,r} log (1 - q_{d,u,r})
+    +   sum_{w,d,u,r} z^{+}_{w,d,u,r} prize(t=t(w, d), u=u)
+    +   sum_{d,u,r} y_{d,u,r} log P(q_{d,u}=q_{d,u,r})
+
+over decision variables
+
+    z^{+}_{w,d,u,r} : W x D x U x R -> {0, 1} relaxed to [0, 1]
+    z^{-}_{w,d,u,r} : W x D x U x R -> {0, 1} relaxed to [0, 1]
+    y_{d,u,r} : D x U x R -> {0, 1} relaxed to [0, 1]
+
+subject to constraints
+
+    for all {w,d,u}:             sum_{r} z^{+}_{w,d,u,r}  <=  1
+    for all {d,u}:                     sum_{r} y_{d,u,r}  <=  1
+    for all {w,d,u,r}:   z^{+}_{w,d,u,r} + z^{-}_{w,d,u,r} =  y_{d,u,r}
+
+Notes:
+
+(a) Ideally we would optimize with decision variables q_{d, u} in [0, 1],
+but this introduces nonlinear terms of the form z log(q) into the objective
+function. To avoid this we approximate each q_{d, u} by one of R
+prespecified constant probability values. We break the nonlinearity by
+making R copies of each original decision variable and adding additional
+variables and constraints to encourage a single approximation r in R to
+be chosen for each q_{d, u}.
+
+(b) The variable z^{-}_{w,d,u,r} is used to encode "0 events of type u were
+observed at time (w, d)". It is necessary to use this instead of
+1 - z^{+}_{w,d,u,r} so we do not penalise the objective when terms for
+values of r that have not been "chosen" via y_{d,u,r} are forced to vanish.
+
+(c) The problem as formulated is much simpler: it decomposes into
+completely independent sub-problems for each combination of D and U.
+As formulated, there is no coupling between these sub problems. We are
+fitting |D| x |U| different independent models in parallel.
+"""
+
+
 def b64encode_binvars(binvars: numpy.typing.NDArray[numpy.uint8]) -> str:
     return str(base64.b64encode(numpy.packbits(binvars)), 'utf-8')
 
@@ -234,87 +316,6 @@ def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, ve
 
 
 def _solve(p: Problem, verbose: bool):
-    """
-    Prototype auxiliary solver.
-
-    Assumes at most one event per day d and event type u.
-    Assumes events generated independently for each (d, u)
-    according to Bernoulli distribution with probability q_{d, u}
-
-    Generative model:
-    for each week w:
-        for each weekday d in w:
-            for each event type u:
-                emit event
-                    with probability q_{d, u} = sum_r y_{d, u, r} q_{d,u,r}
-                with
-                    t = day d of week w
-                    event_type = u
-
-    General scheme of formulation:
-
-        E be observed events
-        H be hypotheses
-
-    max log P(E, H) + log P(H) + Prize(E)
-    over E & H
-    subject to constraints.
-
-    Detailed formulation:
-
-    Index sets:
-
-    *   w in W: indexes over periods ("weeks")
-    *   d in D: indexes within periods ("days")
-    *   u in U: indexes over event types
-    *   r in R: indexes over approximating probabilities
-
-    Input parameters (all constants):
-
-    *   for all {r}:        log q_{d,u,r} in [-inf, 0]
-    *   for all {d,u,r}:    log P(q_{d,u}=q_{d,u,r}) in [-inf, 0]
-    *   for all {w,d,u}:    prize(t=t(w, d), u=u) in [-inf, inf]
-
-    Maximise
-
-            sum_{w,d,u,r} z^{+}_{w,d,u,r} log q_{d,u,r}
-        +   sum_{w,d,u,r} z^{-}_{w,d,u,r} log (1 - q_{d,u,r})
-        +   sum_{w,d,u,r} z^{+}_{w,d,u,r} prize(t=t(w, d), u=u)
-        +   sum_{d,u,r} y_{d,u,r} log P(q_{d,u}=q_{d,u,r})
-
-    over decision variables
-
-        z^{+}_{w,d,u,r} : W x D x U x R -> {0, 1} relaxed to [0, 1]
-        z^{-}_{w,d,u,r} : W x D x U x R -> {0, 1} relaxed to [0, 1]
-        y_{d,u,r} : D x U x R -> {0, 1} relaxed to [0, 1]
-
-    subject to constraints
-
-        for all {w,d,u}:             sum_{r} z^{+}_{w,d,u,r}  <=  1
-        for all {d,u}:                     sum_{r} y_{d,u,r}  <=  1
-        for all {w,d,u,r}:   z^{+}_{w,d,u,r} + z^{-}_{w,d,u,r} =  y_{d,u,r}
-
-    Notes:
-
-    (a) Ideally we would optimize with decision variables q_{d, u} in [0, 1],
-    but this introduces nonlinear terms of the form z log(q) into the objective
-    function. To avoid this we approximate each q_{d, u} by one of R
-    prespecified constant probability values. We break the nonlinearity by
-    making R copies of each original decision variable and adding additional
-    variables and constraints to encourage a single approximation r in R to
-    be chosen for each q_{d, u}.
-
-    (b) The variable z^{-}_{w,d,u,r} is used to encode "0 events of type u were
-    observed at time (w, d)". It is necessary to use this instead of
-    1 - z^{+}_{w,d,u,r} so we do not penalise the objective when terms for
-    values of r that have not been "chosen" via y_{d,u,r} are forced to vanish.
-
-    (c) The problem as formulated is much simpler: it decomposes into
-    completely independent sub-problems for each combination of D and U.
-    As formulated, there is no coupling between these sub problems. We are
-    fitting |D| x |U| different independent models in parallel.
-    """
-
     # Assemble decision variables and objective terms
 
     obj_coeffs = numpy.empty(dtype=numpy.float64, shape=(p.n,))
