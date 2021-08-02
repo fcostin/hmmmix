@@ -258,6 +258,37 @@ def align_to_period_with_padding(period, n_times, n_event_types, prizes):
 
 
 def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, verbose=False):
+    solns = list(gen_solns(
+        n_times=n_times,
+        n_event_types=n_event_types,
+        prizes=prizes,
+        decompose=decompose,
+        period=period,
+        n_R=n_R,
+        verbose=verbose,
+    ))
+    if not solns:
+        return None
+    if len(solns) == 1:
+        return solns[0]
+
+    events = numpy.zeros(shape=prizes.shape, dtype=numpy.int64)
+
+    agg_soln = {
+        'id': '',
+        'obj': 0.0,
+        'log_prob': 0.0,
+        'events': events,
+    }
+    for soln in solns:
+        agg_soln['id'] += soln['id'] + '|'
+        agg_soln['obj'] += soln['obj']
+        agg_soln['log_prob'] += soln['log_prob']
+        agg_soln['events'] += soln['events']
+    return agg_soln
+
+
+def gen_solns(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, verbose=False):
 
     period, n_times, n_event_types, prizes, missing_times = align_to_period_with_padding(period, n_times, n_event_types, prizes)
 
@@ -289,17 +320,10 @@ def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, ve
         log_one_minus_q=log_one_minus_q,
         log_prior_q=log_prior_q,
         missing_times=missing_times,
-
     )
 
-    events = numpy.zeros(shape=prizes.shape, dtype=numpy.int64)
-
-    agg_solution = {
-        'id': '',
-        'obj': 0.0,
-        'log_prob': 0.0,
-        'events': events,
-    }
+    n_missing = len(missing_times)
+    assert missing_times == set(range(n_times-n_missing, n_times))
 
     if decompose:
         for d in D:
@@ -307,21 +331,15 @@ def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, ve
                 subspec = spec.restrict(D=[d], U=[u])
                 subproblem = subspec.make_problem()
                 subsolution = _solve(subproblem, verbose=verbose)
-
-                agg_solution['id'] += subsolution['id'] + '|'
-                agg_solution['obj'] += subsolution['obj']
-                agg_solution['log_prob'] += subsolution['log_prob']
-                agg_solution['events'] += subsolution['events']
+                if n_missing:  # undo fake timestamp padding
+                    subsolution['events'] = subsolution['events'][:-n_missing, :]
+                yield subsolution
     else:
         problem = spec.make_problem()
-        agg_solution = _solve(problem, verbose=verbose)
-
-    if missing_times:
-        # Undo padding with fake timesteps.
-        n_missing = len(missing_times)
-        assert missing_times == set(range(n_times-n_missing, n_times))
-        agg_solution['events'] = agg_solution['events'][:-n_missing, :]
-    return agg_solution
+        solution = _solve(problem, verbose=verbose)
+        if n_missing:  # undo fake timestamp padding
+            solution['events'] = solution['events'][:-n_missing, :]
+        yield solution
 
 
 def _solve(p: Problem, verbose: bool):
