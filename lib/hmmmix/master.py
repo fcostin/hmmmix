@@ -199,7 +199,7 @@ class RelaxedMasterSolver(base.MasterSolver):
                     if aux_soln.objective <= min_improvement:
                         continue
                     assert not numpy.isnan(aux_soln.objective)
-                    priority = -aux_soln.objective
+                    priority = (-aux_soln.objective, aux_solver_id, aux_soln.id) # break ties by ids.
                     prioritised_solns.append((priority, (aux_soln, aux_solver_id)))
 
             if not prioritised_solns:
