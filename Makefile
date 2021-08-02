@@ -13,6 +13,10 @@ demo-profile:	lib/hmmmix/main.py data/transactions.npy $(LIBTRELLIS)
 	python -m lib.hmmmix.main --profile $(DEMO_ARGS) $(word 2,$^)
 .PHONY:	demo-profile
 
+demo-periodic-bernoulli: data/transactions.npy
+	python -m lib.hmmmix.model.periodic_bernoulli.demo $<
+.PHONY: demo-periodic-bernoulli
+
 test:
 	python -m pytest -v .
 .PHONY: test
