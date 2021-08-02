@@ -292,10 +292,13 @@ def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, ve
 
     )
 
+    events = numpy.zeros(shape=prizes.shape, dtype=numpy.int64)
+
     agg_solution = {
         'id': '',
         'obj': 0.0,
         'log_prob': 0.0,
+        'events': events,
     }
 
     if decompose:
@@ -308,10 +311,16 @@ def solve(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4, ve
                 agg_solution['id'] += subsolution['id'] + '|'
                 agg_solution['obj'] += subsolution['obj']
                 agg_solution['log_prob'] += subsolution['log_prob']
+                agg_solution['events'] += subsolution['events']
     else:
         problem = spec.make_problem()
         agg_solution = _solve(problem, verbose=verbose)
 
+    if missing_times:
+        # Undo padding with fake timesteps.
+        n_missing = len(missing_times)
+        assert missing_times == set(range(n_times-n_missing, n_times))
+        agg_solution['events'] = agg_solution['events'][:-n_missing, :]
     return agg_solution
 
 
@@ -476,7 +485,8 @@ def _solve(p: Problem, verbose: bool):
         return None
 
     # recover objective
-    objective_value = res['fun']
+    # need to flip sign for min problem back to max problem.
+    objective_value = -1.0 * res['fun']
 
     # recover solution
     primal_soln = res['x']
@@ -517,11 +527,17 @@ def _solve(p: Problem, verbose: bool):
     log_prob = 0.0
     for i, wdur in enumerate(p.WDUR):  # z^{+}_{w,d,u,r}
         w, d, u, r = wdur
+        t = w * p.period + d
+        if t in p.missing_times:
+            continue
         log_prob += primal_soln[i] * p.log_q[d,u,r]
 
     for i0, wdur in enumerate(p.WDUR):  # z^{-}_{w,d,u,r}
         i = i0 + p.n_WDUR
-        _, d, u, r = wdur
+        w, d, u, r = wdur
+        t = w * p.period + d
+        if t in p.missing_times:
+            continue
         log_prob += primal_soln[i] * p.log_one_minus_q[d, u, r]
 
     for i0, dur in enumerate(p.DUR):
@@ -529,10 +545,21 @@ def _solve(p: Problem, verbose: bool):
         d,u,r = dur
         log_prob += primal_soln[i] * p.log_prior_q[d,u,r]
 
+    events = numpy.zeros(shape=p.prizes.shape, dtype=numpy.int64)
+    for dur in sorted(y_by_dur):
+        d, u, r = dur
+        y = asbit(y_by_dur[dur])
+        if not asbit(y):
+            continue
+        for w in p.W:
+            t = w*p.period + d
+            events[t, u] = asbit(zp_by_wdur[(w, d, u, r)])
+
     return {
         'id': soln_id,
         'obj': objective_value,
         'log_prob': log_prob,
+        'events': events,
     }
 
 

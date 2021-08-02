@@ -7,6 +7,7 @@ from . import base
 from . import once_off_event # TODO master shouldnt depend on concrete aux solvers
 from . import once_per_month_event
 from . import monthly_markov_event
+from . import periodic_bernoulli_event
 
 from . import exact_cover_base
 from . import exact_cover_solver_primal
@@ -113,6 +114,10 @@ class RelaxedMasterSolver(base.MasterSolver):
             'once-off': once_off_event.OnceOffEventAuxiliarySolver(),
         #    'once-per-month': once_per_month_event.OncePerMonthEventAuxiliarySolver(),
             'monthly': monthly_markov_event.MonthlyMarkovEventAuxiliarySolver(),
+            'pb7r4': periodic_bernoulli_event.PeriodicBernoulliAuxiliarySolver(
+                period=7,
+                resolution=4,
+            )
         }
 
         # Shorthand: let z[i] denote i-th Aux solution
