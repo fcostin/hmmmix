@@ -506,62 +506,82 @@ def _solve(p: Problem, verbose: bool):
     # need to flip sign for min problem back to max problem.
     objective_value = -1.0 * res['fun']
 
-    # recover solution
+    # recover relaxed solution
     primal_soln = res['x']
-
-    spam_solution = False
-    if spam_solution:
-        for dur in p.DUR:
-            y_dur = primal_soln[y_i_by_dur[dur]]
-            y_dur = numpy.round(y_dur, decimals=2)
-            if y_dur > 0.0:
-                print('y[%r] = %r' % (dur, y_dur))
-
-        for wdur in p.WDUR:
-            zp_wdur = primal_soln[zp_i_by_wdur[wdur]]
-            zm_wdur = primal_soln[zm_i_by_wdur[wdur]]
-            zp_wdur = numpy.round(zp_wdur, decimals=2)
-            zm_wdur = numpy.round(zm_wdur, decimals=2)
-            if zp_wdur > 0.0:
-                print('z(+)[%r] = %r' % (wdur, zp_wdur))
-            if zm_wdur > 0.0:
-                print('z(-)[%r] = %r' % (wdur, zm_wdur))
 
     y_by_dur = {dur:primal_soln[y_i_by_dur[dur]] for dur in p.DUR}
     zp_by_wdur = {wdur: primal_soln[zp_i_by_wdur[wdur]] for wdur in p.WDUR}
+    zm_by_wdur = {wdur: primal_soln[zm_i_by_wdur[wdur]] for wdur in p.WDUR}
+
+    # Coerce relaxed solution into integer solution.
+    # Very often (but not always) the relaxed solution is integral anyway.
+    for du in p.DU:
+        d,u = du
+        best_r = p.R[0]
+        best = 0.0
+        for r in p.R:
+            v = y_by_dur[(d,u,r)]
+            if v > best:
+                best = v
+                best_r = r
+        for r in p.R:
+            y_by_dur[(d, u, r)] = int(r == best_r)
+
+    for wdur in p.WDUR:
+        w,d,u,r = wdur
+        if not y_by_dur[(d, u, r)]:
+            zp_by_wdur[wdur] = 0
+        else:
+            zp_by_wdur[wdur] = int(numpy.round(zp_by_wdur[wdur]))
+
+    for wdur in p.WDUR:
+        w, d, u, r = wdur
+        if not y_by_dur[(d, u, r)]:
+            zm_by_wdur[wdur] = 0
+        else:
+            zm_by_wdur[wdur] = 1 - zp_by_wdur[wdur]
 
     # We don't care about the emitted value at missing timesteps (if any).
-    # Zero it out.
+    # Zero them out so they don't cause different idstrings.
+
     for t in p.missing_times:
         w = t // p.period
         d = t % p.period
         for u in p.U:
             for r in p.R:
                 wdur = (w,d,u,r)
-                zp_by_wdur[wdur] = 0.0
+                zp_by_wdur[wdur] = 0
+                zm_by_wdur[wdur] = 0
     soln_id = idstring_encode_soln(y_by_dur, zp_by_wdur, p.W)
 
-    # recover log prob -- equal to objective without prize term
-    log_prob = 0.0
-    for i, wdur in enumerate(p.WDUR):  # z^{+}_{w,d,u,r}
+    # We need to recompute the objective now that we forced an integer
+    # solution. We also recover the log prob -- equal to objective without
+    # prize term.
+
+    int_obj = 0.0
+    int_log_prob = 0.0
+
+    # TODO FIXME: janky, we're defining the objective in two places.
+    for wdur in p.WDUR:  # z^{+}_{w,d,u,r}
         w, d, u, r = wdur
         t = w * p.period + d
         if t in p.missing_times:
             continue
-        log_prob += primal_soln[i] * p.log_q[d,u,r]
+        int_obj += zp_by_wdur[wdur] * (p.log_q[d,u,r] + p.prizes[t, u])
+        int_log_prob += zp_by_wdur[wdur] * p.log_q[d, u, r]
 
-    for i0, wdur in enumerate(p.WDUR):  # z^{-}_{w,d,u,r}
-        i = i0 + p.n_WDUR
+    for wdur in p.WDUR:  # z^{-}_{w,d,u,r}
         w, d, u, r = wdur
         t = w * p.period + d
         if t in p.missing_times:
             continue
-        log_prob += primal_soln[i] * p.log_one_minus_q[d, u, r]
+        int_obj += zm_by_wdur[wdur] * p.log_one_minus_q[d, u, r]
+        int_log_prob += zm_by_wdur[wdur] * p.log_one_minus_q[d, u, r]
 
-    for i0, dur in enumerate(p.DUR):
-        i = i0 + 2*p.n_WDUR
-        d,u,r = dur
-        log_prob += primal_soln[i] * p.log_prior_q[d,u,r]
+    for dur in p.DUR:
+        int_obj += y_by_dur[dur] * p.log_prior_q[dur]
+        int_log_prob += y_by_dur[dur] * p.log_prior_q[dur]
+
 
     events = numpy.zeros(shape=p.prizes.shape, dtype=numpy.int64)
     for dur in sorted(y_by_dur):
@@ -575,8 +595,8 @@ def _solve(p: Problem, verbose: bool):
 
     return {
         'id': soln_id,
-        'obj': objective_value,
-        'log_prob': log_prob,
+        'obj': int_obj,
+        'log_prob': int_log_prob,
         'events': events,
     }
 

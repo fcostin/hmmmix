@@ -41,7 +41,7 @@ class PeriodicBernoulliAuxiliarySolver(base.AuxiliarySolver):
 
         return soln_star
 
-    def gen_solns(self, problem: base.AuxiliaryProblem) -> typing.Optional[base.AuxiliarySolution]:
+    def gen_solutions(self, problem: base.AuxiliaryProblem) -> typing.Iterable[base.AuxiliarySolution]:
         obj_lower_bound = 1.0e-4 # roughly zero.
         for raw_soln in periodic_bernoulli.gen_solns(
                 n_times=len(problem.times),

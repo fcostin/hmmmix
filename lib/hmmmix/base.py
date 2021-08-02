@@ -63,6 +63,12 @@ class AuxiliarySolver(metaclass=abc.ABCMeta):
     def solve(self, problem: AuxiliaryProblem) -> typing.Optional[AuxiliarySolution]:
         pass
 
+    def gen_solutions(self, problem: AuxiliaryProblem) -> typing.Iterable[AuxiliarySolution]:
+        # Subclasses encouraged to override this and return multiple solutions.
+        soln = self.solve(problem)
+        if soln is not None:
+            yield soln
+
 
 def is_auxiliary_solution_sane(problem: AuxiliaryProblem, soln: AuxiliarySolution) -> bool:
     # Check that the difference between the claimed objective and logprob

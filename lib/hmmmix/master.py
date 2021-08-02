@@ -187,25 +187,22 @@ class RelaxedMasterSolver(base.MasterSolver):
                 prizes=prizes,
             )
 
-            min_improvement = 10.e-9
+            # status quo has reduced cost 0. require strictly positive.
+            min_improvement = 0.01 * abs(obj) # ADHOC stopping condition
 
-            best_aux_objective = min_improvement # status quo has reduced cost 0. require strictly positive
-            best_aux_soln = None
-            best_aux_solver_id = None
+            prioritised_solns = []
 
             for aux_solver_id, aux_solver in aux_solvers_by_id.items():
-                aux_soln = aux_solver.solve(aux_problem)
-                if aux_soln is None:
-                    continue
-                assert base.is_auxiliary_solution_sane(aux_problem, aux_soln)
-                if aux_soln.objective <= best_aux_objective:
-                    continue
-                assert not numpy.isnan(aux_soln.objective)
-                best_aux_objective = aux_soln.objective
-                best_aux_soln = aux_soln
-                best_aux_solver_id = aux_solver_id
+                for aux_soln in aux_solver.gen_solutions(aux_problem):
+                    assert aux_soln is not None
+                    assert base.is_auxiliary_solution_sane(aux_problem, aux_soln)
+                    if aux_soln.objective <= min_improvement:
+                        continue
+                    assert not numpy.isnan(aux_soln.objective)
+                    priority = -aux_soln.objective
+                    prioritised_solns.append((priority, (aux_soln, aux_solver_id)))
 
-            if best_aux_soln is None:
+            if not prioritised_solns:
                 print("solving LP once more to recover primal solution")
                 if not use_primal:
                     use_primal = True
@@ -213,21 +210,22 @@ class RelaxedMasterSolver(base.MasterSolver):
                     continue
                 return cover_solution
 
-            print('best aux objective: %r' % (best_aux_objective, ))
+            prioritised_solns = top_k(prioritised_solns, k=25)
+            for (aux_soln, aux_solver_id) in prioritised_solns:
+                print('aux objective: %r' % (aux_soln.objective, ))
+                new_i = make_soln_id(aux_solver_id, aux_soln.id)
+                print('adding column z[i]: %s' % (new_i, ))
 
-            new_i = make_soln_id(best_aux_solver_id, best_aux_soln.id)
+                # Ban solver from generating the same aux solution again.
+                aux_solvers_by_id[aux_solver_id].exclude(aux_soln)
 
-            print('adding column z[i]: %s' % (new_i, ))
+                assert new_i not in z_by_i
+                z_by_i[new_i] = aux_soln
 
-            # Ban solver from generating the same aux solution again.
-            aux_solvers_by_id[best_aux_solver_id].exclude(best_aux_soln)
-
-            assert new_i not in z_by_i
-            z_by_i[new_i] = best_aux_soln
-
-            for tu in e_support(best_aux_soln):
-                i_with_support_t_u[tu].add(new_i)
-
-
+                for tu in e_support(aux_soln):
+                    i_with_support_t_u[tu].add(new_i)
 
 
+def top_k(prioritised_solns, k):
+    prioritised_solns = sorted(prioritised_solns)
+    return [s for (_, s) in prioritised_solns[:k]]
