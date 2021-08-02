@@ -117,7 +117,7 @@ class RelaxedMasterSolver(base.MasterSolver):
             'pb7r4': periodic_bernoulli_event.PeriodicBernoulliAuxiliarySolver(
                 period=7,
                 resolution=4,
-            )
+            ),
         }
 
         # Shorthand: let z[i] denote i-th Aux solution
@@ -188,7 +188,7 @@ class RelaxedMasterSolver(base.MasterSolver):
             )
 
             # status quo has reduced cost 0. require strictly positive.
-            min_improvement = 0.01 * abs(obj) # ADHOC stopping condition
+            min_improvement = 0.001 * abs(obj) # ADHOC stopping condition
 
             prioritised_solns = []
 
