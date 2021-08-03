@@ -86,6 +86,16 @@ values of r that have not been "chosen" via y_{d,u,r} are forced to vanish.
 completely independent sub-problems for each combination of D and U.
 As formulated, there is no coupling between these sub problems. We are
 fitting |D| x |U| different independent models in parallel.
+
+(d) The solution of the relaxed problem is not always integral. We need an
+integer solution. The relaxed solution can be naively rounded, but this does
+not necessarily recover an optimal integer solution.
+
+(e) It seems faster and more optimal to not use this LP formulation and just
+directly solve each decomposed independent sub-problem. Note that each
+subproblem is completely trivial to solve optimally with binary variables in
+time linearly proportional to |W||D||U||R|, i.e. linear in the number of
+decision variables in the above LP formulation.
 """
 
 
@@ -330,19 +340,42 @@ def gen_solns(n_times, n_event_types, prizes, decompose, period: int, n_R: int=4
             for u in U:
                 subspec = spec.restrict(D=[d], U=[u])
                 subproblem = subspec.make_problem()
-                subsolution = _solve(subproblem, verbose=verbose)
+
+                compare_methods = False
+                if compare_methods:
+                    subsolution = _solve_lp(subproblem, verbose=verbose)
+                    subsolution_shadow = _bruteforce_solve(subproblem, verbose=verbose)
+
+                    tol = 1.0e-4
+                    if abs(subsolution['rounding_error']) > tol:
+                        assert subsolution['obj'] <= subsolution_shadow['obj'] + tol, (subsolution, subsolution_shadow)
+                        assert subsolution['log_prob'] <= subsolution_shadow['log_prob'] + tol
+                    else:
+                        assert subsolution['id'] == subsolution_shadow['id']
+                        assert numpy.all(subsolution['events']==subsolution_shadow['events'])
+                        assert numpy.isclose(subsolution['obj'], subsolution_shadow['obj'], atol=tol), (subsolution, subsolution_shadow)
+                        assert numpy.isclose(subsolution['log_prob'], subsolution_shadow['log_prob'], atol=tol)
+
+                subsolution = _bruteforce_solve(subproblem, verbose=verbose)
+
                 if n_missing:  # undo fake timestamp padding
                     subsolution['events'] = subsolution['events'][:-n_missing, :]
                 yield subsolution
     else:
         problem = spec.make_problem()
-        solution = _solve(problem, verbose=verbose)
+        solution = _bruteforce_solve(problem, verbose=verbose)
         if n_missing:  # undo fake timestamp padding
             solution['events'] = solution['events'][:-n_missing, :]
         yield solution
 
 
-def _solve(p: Problem, verbose: bool):
+def _solve_lp(p: Problem, verbose: bool):
+    """
+    DEPRECATED:
+    *   much slower than the direct bruteforce solve
+    *   relaxed solution is sometimes non-integer and less optimal than
+        real integer bruteforce'd solution.
+    """
     # Assemble decision variables and objective terms
 
     obj_coeffs = numpy.empty(dtype=numpy.float64, shape=(p.n,))
@@ -515,6 +548,9 @@ def _solve(p: Problem, verbose: bool):
 
     # Coerce relaxed solution into integer solution.
     # Very often (but not always) the relaxed solution is integral anyway.
+
+    acc_rounding_error = 0.0
+
     for du in p.DU:
         d,u = du
         best_r = p.R[0]
@@ -525,6 +561,7 @@ def _solve(p: Problem, verbose: bool):
                 best = v
                 best_r = r
         for r in p.R:
+            acc_rounding_error += abs(1.0 - best)
             y_by_dur[(d, u, r)] = int(r == best_r)
 
     for wdur in p.WDUR:
@@ -532,7 +569,10 @@ def _solve(p: Problem, verbose: bool):
         if not y_by_dur[(d, u, r)]:
             zp_by_wdur[wdur] = 0
         else:
-            zp_by_wdur[wdur] = int(numpy.round(zp_by_wdur[wdur]))
+            integer_zp_wdur = int(numpy.round(zp_by_wdur[wdur]))
+            rounding_error = integer_zp_wdur - zp_by_wdur[wdur]
+            acc_rounding_error += abs(rounding_error)
+            zp_by_wdur[wdur] = integer_zp_wdur
 
     for wdur in p.WDUR:
         w, d, u, r = wdur
@@ -598,6 +638,105 @@ def _solve(p: Problem, verbose: bool):
         'obj': int_obj,
         'log_prob': int_log_prob,
         'events': events,
+        'rounding_error': acc_rounding_error,
     }
 
+
+
+def _bruteforce_solve(p: Problem, verbose: bool):
+    # Brute force solve
+    #
+    # Fix d in D and u in U
+    # For each r in R, the problem is trivial:
+    # 1. assume y_{d,u,r}=1
+    #       obj_r = log_prior_q[d,u,r]
+    # 2. for each w in W:
+    #       obj_r += max(log_q[d,u,r] + prizes[t, u], log_one_minus_q[d,u,r])
+    #       Set z^{+}_{w,d,u,r} to 1 or 0 based on which side of max is maximal.
+    #
+    # Then compare all obj_r . The r=r* with maximal obj_r is the best one
+    # to pick. Zero all variables y_{d,d,r} and zp_{w,d,u,r} for all r != r*.
+    #
+    #    If obj_r > 0, keep y_{d,u,r} and z^{+}_{w,d,u,r} as set.
+    #    Otherwise, set them all to zero.
+    #
+    # This can all be done in O(|D|x|U|x|R|).
+    #
+    # We could do something cleverer than this if |R| was large, e.g. define
+    # some thing to solve for continuous probability q in (0, 1) instead of
+    # sweeping over finite R. But in practice we see |R|=4 works fairly well.
+
+    y_by_dur = {dur: 0 for dur in p.DUR}
+    zp_by_wdur = {wdur: 0 for wdur in p.WDUR}
+
+    acc_obj = 0.0
+    acc_log_prob = 0.0
+    for du in p.DU:
+        d,u = du
+
+        best_obj_r = -numpy.inf
+        best_r = None
+        best_logprob_r = -numpy.inf
+
+        for r in p.R:
+            y_by_dur[(d, u, r)] = 1
+            prior_r = p.log_prior_q[d,u,r]
+            obj_r = prior_r
+            logprob_r = prior_r
+            for w in p.W:
+                # Support for problems with missing observations at certain
+                # times is expressed through the missing_times set. The current
+                # implementation just zeros out the corresponding terms in the
+                # objective function. We need this to handle problems where the
+                # range of time steps is not an integer multiple of the period.
+                t = w * p.period + d
+                if t in p.missing_times:
+                    continue
+                logprob_emit = p.log_q[d,u,r]
+                logprob_skip = p.log_one_minus_q[d,u,r]
+                value_emit = logprob_emit + p.prizes[t, u]
+                value_skip = logprob_skip
+                if value_emit > value_skip:
+                    obj_r += value_emit
+                    logprob_r += logprob_emit
+                    zp_by_wdur[(w,d,u,r)] = 1
+                else:
+                    obj_r += value_skip
+                    logprob_r += logprob_skip
+
+            if obj_r > best_obj_r:
+                best_obj_r = obj_r
+                best_r = r
+                best_logprob_r = logprob_r
+
+        # select argmax_r and turn other values of r off
+        acc_obj += best_obj_r
+        acc_log_prob += best_logprob_r
+
+        for r in p.R:
+            if r == best_r:
+                continue
+            # This is an inferior choice of r. zero all decision vars.
+            y_by_dur[(d, u, r)] = 0
+            for w in p.W:
+                zp_by_wdur[(w, d, u, r)] = 0
+
+    events = numpy.zeros(shape=p.prizes.shape, dtype=numpy.int64)
+    for dur in sorted(y_by_dur):
+        d, u, r = dur
+        y = y_by_dur[dur]
+        if not asbit(y):
+            continue
+        for w in p.W:
+            t = w*p.period + d
+            events[t, u] = asbit(zp_by_wdur[(w, d, u, r)])
+
+    soln_id = idstring_encode_soln(y_by_dur, zp_by_wdur, p.W)
+
+    return {
+        'id': soln_id,
+        'obj': acc_obj,
+        'log_prob': acc_log_prob,
+        'events': events,
+    }
 
